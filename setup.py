@@ -54,7 +54,7 @@ setup(
 	],
 	extras_require={
 		'MySQL' : ['MySQL-python'],
-		'Vertica' : ['vertica-python, sqlalchemy-vertica-python'],
+		'Vertica' : ['vertica-python', 'sqlalchemy-vertica-python'],
 		'VerticaODBC' : ['pyodbc', 'vertica-sqlalchemy'],
 		'PostgreSQL' : ['psycopg2'],
 	},
