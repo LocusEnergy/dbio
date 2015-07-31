@@ -1,0 +1,4 @@
+*.pyc
+dbio/test/__pycache__/
+dev/
+doc/
