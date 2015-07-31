@@ -76,7 +76,7 @@ the command line with the following optional arguments (placed after
 -  ``-e``: encoding. Defaults to ``'utf-8'``.
 
 Some databases (e.g. Vertica, PostgreSQL) allow specifying a specific
-string to represent NULL values. MySQL only allows "", so if you wish to
+string to represent NULL values. MySQL only allows "\\N", so if you wish to
 make a MySQL table the target of a **load** or **replicate** operation,
 and you also wish to distinguish between NULL and the empty string, use
 ``dbio -ns "\N" replicate query_db_url mysql_url query mysql_table``.
