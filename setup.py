@@ -30,6 +30,7 @@ setup(
 	license='MIT',
 	url='https://github.com/locusenergy/dbio',
 	download_url='https://github.com/LocusEnergy/dbio/tarball/0.1.0',
+	description='Simple module for database I/O operations.',
 	long_description=open("README.rst").read(),
 	classifiers=[
         'Development Status :: 3 - Alpha',
