@@ -14,6 +14,8 @@ class Vertica(Exportable, Importable):
 	SWAP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
 			 			 "RENAME TO {temp}, {table}, {staging};")
 
+	ANALYZE_CMD = "SELECT ANALYZE_STATISTICS('{table}');"
+
 	DROP_CMD = "DROP TABLE {staging};"
 
 	def __init__(self, url):
@@ -21,7 +23,7 @@ class Vertica(Exportable, Importable):
 		Importable.__init__(self, url)
 		
 
-	def execute_import(self, table, filename, csv_params, append, null_string=''):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -41,6 +43,10 @@ class Vertica(Exportable, Importable):
 			with open(filename, 'r') as f:
 				raw_cursor.copy(
 					self.COPY_CMD.format(table=copy_table, nullstring=null_string, **csv_params), f)
+				raw_cursor.close()
+
+			if analyze:
+				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
 
 			if not append:
 				connection.execute(
@@ -58,6 +64,8 @@ class VerticaODBC(Exportable, Importable):
 				"RECORD TERMINATOR '{lineterminator}' NULL AS '{nullstring}' "
 				"ENCLOSED BY '{quotechar}';")
 
+	ANALYZE_CMD = "SELECT ANALYZE_STATISTICS('{table}');"
+
 	SWAP_AND_DROP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
 			 			 "RENAME TO {temp}, {table}, {staging};"
 			 			 "DROP TABLE {staging};")
@@ -67,7 +75,7 @@ class VerticaODBC(Exportable, Importable):
 		Importable.__init__(self, url)
 		
 
-	def execute_import(self, table, filename, csv_params, append):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -86,6 +94,9 @@ class VerticaODBC(Exportable, Importable):
 			connection.execute(
 					self.COPY_CMD.format(table=copy_table, filename=filename, 
 										nullstring=null_string, **csv_params))
+
+			if analyze:
+				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
 
 			if not append:
 				connection.execute(

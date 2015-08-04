@@ -275,6 +275,8 @@ def test_replicate_no_fifo(monkeypatch):
 	mock_filename = 'mock_filename'
 	mock_append = True
 	mock_query_is_file = True
+	mock_analyze = True
+	mock_null_string = 'NONE'
 
 	query_called_with = {}
 	load_called_with = {}
@@ -290,14 +292,17 @@ def test_replicate_no_fifo(monkeypatch):
 	monkeypatch.setattr(dbio.io, 'load', mock_load)
 	monkeypatch.setattr(dbio.io, 'query', mock_query)
 
-	dbio.replicate_no_fifo(mock_url, mock_url, mock_query, mock_table, mock_append, query_is_file=mock_query_is_file)
+	dbio.replicate_no_fifo(mock_url, mock_url, mock_query, mock_table, 
+						mock_append, query_is_file=mock_query_is_file, 
+						analyze=mock_analyze, null_string=mock_null_string)
 
 	fname = query_called_with['args'][2]
 
 	correct_query_args = (mock_url, mock_query, fname)
-	correct_query_kwargs = {'query_is_file' : mock_query_is_file}
+	correct_query_kwargs = {'query_is_file' : mock_query_is_file, 'null_string' : mock_null_string}
 	correct_load_args = (mock_url, mock_table, fname, mock_append)
-	correct_load_kwargs = {}
+	correct_load_kwargs = {'analyze' : mock_analyze, 'csv_params' : dbio.io.CSV_PARAMS_DEFAULT,
+							'null_string' : mock_null_string}
 
 	assert load_called_with['args'] == correct_load_args
 	assert load_called_with['kwargs'] == correct_load_kwargs
@@ -335,7 +340,8 @@ def test_sqlite():
 
 	dbio.load(query_db_url, query_table, data_file.name, False)
 
-	dbio.replicate(query_db_url, import_db_url, 'SELECT * FROM ' + query_table, import_table, False)
+	dbio.replicate(query_db_url, import_db_url, 'SELECT * FROM ' + query_table, 
+					import_table, False, analyze=True)
 
 	check_file = tempfile.NamedTemporaryFile()
 	dbio.query(import_db_url, 'SELECT * FROM ' + import_table, check_file.name)

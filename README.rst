@@ -98,6 +98,7 @@ Optional flags:
 -  ``-f``: indicates that ``query`` is the name of a file.
 -  ``-a``: runs in append mode. Rows that were in the loading database
    before replication are preserved.
+-  ``-z``: analyzes ``table`` for query optimization after completing the load.
 -  ``-nf``: does not use ``mkfifo()``. Use this if ``mkfifo()`` is not
    supported by your OS (e.g. Windows).
 
@@ -127,6 +128,7 @@ Optional flags:
 
 -  ``-a``: runs in append mode. Rows that were in the loading database
    before replication are preserved.
+-  ``-z``: analyzes ``table`` after completing the load.
 
 Query
 ~~~~~
@@ -142,6 +144,7 @@ Optional flags:
 
 -  ``-f``: indicates that ``query`` is the name of a file.
 -  ``-b``: specify ``batch_size``, which determines the number of rows. to store in memory before writing to the file. Defaults to 1,000,000.
+
 
 Databases
 ---------

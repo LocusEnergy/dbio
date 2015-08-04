@@ -11,6 +11,8 @@ class SQLite(Exportable, Importable):
 
 	INSERT_CMD = "INSERT INTO {table} VALUES {values};";
 
+	ANALYZE_CMD = "ANALYZE {table};"
+
 	SWAP_AND_DROP_CMDS = ["ALTER TABLE {table} RENAME TO {temp};",
 						 "ALTER TABLE {staging} RENAME TO {table};",
 						 "ALTER TABLE {temp} RENAME TO {staging};",
@@ -23,7 +25,7 @@ class SQLite(Exportable, Importable):
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, csv_params, append, null_string=''):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -53,6 +55,9 @@ class SQLite(Exportable, Importable):
 				if values:
 					connection.execute(self.INSERT_CMD.format(
 											table=insert_table, values=','.join(values)))
+
+			if analyze:
+				connection.execute(self.ANALYZE_CMD.format(table=insert_table))
 
 			if not append:
 				for cmd in self.SWAP_AND_DROP_CMDS:

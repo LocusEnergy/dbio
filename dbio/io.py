@@ -38,7 +38,7 @@ PIPE_NAME = 'replication_fifo'
 
 
 def query(sqla_url, query, filename, query_is_file=False, 
-			batch_size=FILE_WRITE_BATCH, csv_params=None, 
+			batch_size=FILE_WRITE_BATCH, csv_params=CSV_PARAMS_DEFAULT, 
 			null_string=NULL_STRING_DEFAULT):
 	""" Query a database and write the results to a csv file.
 
@@ -54,9 +54,6 @@ def query(sqla_url, query, filename, query_is_file=False,
 	"""
 
 	logger.info("Querying to csv.")
-
-	if csv_params is None:
-		csv_params = CSV_PARAMS_DEFAULT
 
 	if query_is_file:
 		query_str = __file_to_str(query)
@@ -88,7 +85,7 @@ def query(sqla_url, query, filename, query_is_file=False,
 	return rows_written
 
 
-def load(sqla_url, table, filename, append, csv_params=None, 
+def load(sqla_url, table, filename, append, csv_params=CSV_PARAMS_DEFAULT, analyze=False,
 			null_string=NULL_STRING_DEFAULT):
 	""" Import data from a csv file to a database table. 
 
@@ -97,23 +94,23 @@ def load(sqla_url, table, filename, append, csv_params=None,
 		:param filename: Name of csv file to load from.
 		:param append: If True, any data already in the table will be preserved.
 		:param csv_params: Dictionary of csv parameters.
+		:param analyze: If True, the table will be will be analyzed for 
+					query optimization immediately after importing.
 		:param null_string: String to represent null values with.
 
 	"""
 
 	logger.info("Importing from CSV.")
 
-	if csv_params is None:
-		csv_params = CSV_PARAMS_DEFAULT
-
 	db = __get_database(sqla_url)
-	db.execute_import(table, filename, csv_params, append)
+	db.execute_import(table, filename, csv_params, append, 
+						analyze=analyze, null_string=null_string)
 
 	logger.info("Load from csv completed.")
 
 
 def replicate(query_db_url, load_db_url, query, table, append, query_is_file=False, 
-				csv_params=None, null_string=NULL_STRING_DEFAULT):
+				csv_params=CSV_PARAMS_DEFAULT, analyze=False, null_string=NULL_STRING_DEFAULT):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -140,14 +137,13 @@ def replicate(query_db_url, load_db_url, query, table, append, query_is_file=Fal
 	os.mkfifo(PIPE_NAME)
 	try:
 		# Subprocess commands setup
-		if csv_params is None:
-			csv_params = CSV_PARAMS_DEFAULT
-
 		dbio_args = __get_dbio_args(csv_params, null_string)
 
 		load_args = dbio_args + ['load', load_db_url, table, PIPE_NAME]
 		if append:
 			load_args.append('--append')
+		if analyze:
+			load_args.append('--analyze')
 
 		query_args = dbio_args + ['query', query_db_url, query, PIPE_NAME, 
 								  '--batchsize', str(PIPE_WRITE_BATCH)]
@@ -205,7 +201,9 @@ def replicate(query_db_url, load_db_url, query, table, append, query_is_file=Fal
 	logger.info("Replication completed.")
 
 
-def replicate_no_fifo(query_db_url, load_db_url, _query, table, append, query_is_file=False):
+def replicate_no_fifo(query_db_url, load_db_url, query, table, append, 
+						query_is_file=False, csv_params=CSV_PARAMS_DEFAULT, 
+						analyze=False, null_string=NULL_STRING_DEFAULT):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
@@ -215,8 +213,10 @@ def replicate_no_fifo(query_db_url, load_db_url, _query, table, append, query_is
 
 	temp_file = tempfile.NamedTemporaryFile()
 	try:
-		query(query_db_url, _query, temp_file.name, query_is_file=query_is_file)
-		load(load_db_url, table, temp_file.name, append)
+		query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
+				null_string=null_string)
+		load(load_db_url, table, temp_file.name, append,
+				csv_params=csv_params, analyze=analyze, null_string=null_string)
 	finally:
 		temp_file.close()
 

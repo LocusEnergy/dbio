@@ -2,6 +2,9 @@
 from base import Exportable, Importable
 
 
+
+
+
 class PostgreSQL(Exportable, Importable):
 
 	COPY_CMD = ("COPY {table} FROM STDIN CSV "
@@ -9,6 +12,8 @@ class PostgreSQL(Exportable, Importable):
 				"NULL '{nullstring}' QUOTE '{quotechar}'; ")
 
 	CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table});"
+
+	ANALYZE_CMD = "ANALYZE {table};"
 
 	SWAP_AND_DROP_CMD = ("ALTER TABLE {table} RENAME TO {temp};"
 						 "ALTER TABLE {staging} RENAME TO {table};"
@@ -20,7 +25,7 @@ class PostgreSQL(Exportable, Importable):
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, csv_params, append, null_string=''):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -42,6 +47,10 @@ class PostgreSQL(Exportable, Importable):
 				raw_cursor.copy_expert(
 					self.COPY_CMD.format(table=copy_table, nullstring=null_string, 
 											**csv_params), f)
+				raw_cursor.close()
+
+			if analyze:
+				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
 
 			if not append:
 				connection.execute(

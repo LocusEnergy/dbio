@@ -20,6 +20,8 @@ class MySQL(Exportable, Importable):
 				"FIELDS TERMINATED BY '\{delimiter}' ENCLOSED BY '\{quotechar}' "
 				"ESCAPED BY '\{escapechar}' LINES TERMINATED BY '\{lineterminator}';")
 
+	ANALYZE_CMD = ("ANALYZE TABLE {table};")
+
 	SWAP_AND_DROP_CMD = ("RENAME TABLE {table} TO {temp}, {staging} TO {table}, "
 		 				 "{temp} TO {staging};"
 		 				 "DROP TABLE {staging};")
@@ -40,13 +42,13 @@ class MySQL(Exportable, Importable):
 		return sqlalchemy.create_engine(self.url, connect_args={'local_infile' : 1})
 
 
-	def execute_import(self, table, filename, csv_params, append, null_string=''):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
-			copy_table = table
+			load_table = table
 		else:
-			copy_table = staging
+			load_table = staging
 
 		eng = self.get_import_engine()
 		
@@ -60,7 +62,10 @@ class MySQL(Exportable, Importable):
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
 			connection.execute(
-					self.LOAD_CMD.format(table=copy_table, filename=filename, **csv_params))
+					self.LOAD_CMD.format(table=load_table, filename=filename, **csv_params))
+
+			if analyze:
+				connection.execute(self.ANALYZE_CMD.format(table=load_table))
 
 			if not append:
 				connection.execute(

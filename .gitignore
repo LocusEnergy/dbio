@@ -2,3 +2,5 @@
 dbio/test/__pycache__/
 dev/
 doc/
+dist/
+dbio.egg-info/
