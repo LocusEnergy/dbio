@@ -13,7 +13,7 @@ def load(args):
 	io.load(args.db_url, args.table, args.filename, args.append, 
 			csv_params=csv_params, analyze=args.analyze, null_string=args.null_string)
 
-unicod
+
 def query(args):
 	csv_params = __get_csv_params(args)
 	io.query(args.db_url, args.query, args.filename, query_is_file=args.from_file, 
