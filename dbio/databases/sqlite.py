@@ -25,7 +25,7 @@ class SQLite(Exportable, Importable):
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
+	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -47,7 +47,8 @@ class SQLite(Exportable, Importable):
 				values = []
 				for row in reader:
 					rows_read += 1
-					values.append('(\'' + '\',\''.join(row) + '\')')
+					nulled_row = ['NULL' if field == null_string else field for field in row]
+					values.append('(\'' + '\',\''.join(nulled_row) + '\')')
 					if (rows_read % self.INSERT_BATCH) == 0:
 						connection.execute(self.INSERT_CMD.format(
 											table=insert_table, values=','.join(values)))

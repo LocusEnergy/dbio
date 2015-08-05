@@ -11,22 +11,13 @@ import unicodecsv
 import sqlalchemy
 
 # Local modules.
-from databases import dialect_driver_class_map
+from databases import dialect_driver_class_map, DEFAULT_CSV_PARAMS, DEFAULT_NULL_STRING
+
 
 # Setup module level logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 logging.getLogger('sqlalchemy').setLevel(logging.NOTSET)
-
-CSV_PARAMS_DEFAULT = {  'delimiter' : ',', 
-						'escapechar' : '\\',
-						'lineterminator' : '\r\n',
-						'encoding' : 'utf-8',
-						'doublequote' : False,
-						'quotechar' : '"',
-						'quoting' : unicodecsv.QUOTE_ALL}
-
-NULL_STRING_DEFAULT = ''
 
 FILE_WRITE_BATCH = 1000000
 
@@ -38,8 +29,8 @@ PIPE_NAME = 'replication_fifo'
 
 
 def query(sqla_url, query, filename, query_is_file=False, 
-			batch_size=FILE_WRITE_BATCH, csv_params=CSV_PARAMS_DEFAULT, 
-			null_string=NULL_STRING_DEFAULT):
+			batch_size=FILE_WRITE_BATCH, csv_params=DEFAULT_CSV_PARAMS, 
+			null_string=DEFAULT_NULL_STRING):
 	""" Query a database and write the results to a csv file.
 
 		:param sqla_url: SQLAlchemy engine creation URL for db.
@@ -85,8 +76,8 @@ def query(sqla_url, query, filename, query_is_file=False,
 	return rows_written
 
 
-def load(sqla_url, table, filename, append, csv_params=CSV_PARAMS_DEFAULT, analyze=False,
-			null_string=NULL_STRING_DEFAULT):
+def load(sqla_url, table, filename, append, csv_params=DEFAULT_CSV_PARAMS, analyze=False,
+			null_string=DEFAULT_NULL_STRING):
 	""" Import data from a csv file to a database table. 
 
 		:param sqla_url: SQLAlchemy url string to pass to create_engine().
@@ -103,14 +94,14 @@ def load(sqla_url, table, filename, append, csv_params=CSV_PARAMS_DEFAULT, analy
 	logger.info("Importing from CSV.")
 
 	db = __get_database(sqla_url)
-	db.execute_import(table, filename, csv_params, append, 
-						analyze=analyze, null_string=null_string)
+	db.execute_import(table, filename, append, csv_params, null_string,
+						analyze=analyze)
 
 	logger.info("Load from csv completed.")
 
 
-def replicate(query_db_url, load_db_url, query, table, append, query_is_file=False, 
-				csv_params=CSV_PARAMS_DEFAULT, analyze=False, null_string=NULL_STRING_DEFAULT):
+def replicate(query_db_url, load_db_url, query, table, append, 
+			  query_is_file=False, analyze=False):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -124,8 +115,7 @@ def replicate(query_db_url, load_db_url, query, table, append, query_is_file=Fal
 		:param table: Table in database to load data from filename.
 		:param append: If True, any data already in the table will be preserved.
 		:param query_is_file: If True, the query argument is a filename.
-		:param csv_params: Dictionary of csv parameters.
-		:param null_string: String to represent null values with.
+
 
 		:raises ReaderError: Reader process did not execute successfully.
 		:raises WriterError: Writer process did not execute successfully.
@@ -133,33 +123,46 @@ def replicate(query_db_url, load_db_url, query, table, append, query_is_file=Fal
 	"""
 	logger.info("Beginning replication.")
 
+	load_db = __get_database(load_db_url)
+	csv_params = load_db.DEFAULT_CSV_PARAMS
+	null_string = load_db.DEFAULT_NULL_STRING
+
 	# Open a UNIX first-in-first-out file (a named pipe).
 	os.mkfifo(PIPE_NAME)
 	try:
-		# Subprocess commands setup
-		dbio_args = __get_dbio_args(csv_params, null_string)
+		# Args for 'dbio' command
+		dbio_args = ['dbio']
+		root_logger_level = logging.getLogger().level
+		if root_logger_level <= logging.DEBUG:
+			dbio_args.append('-v')
+		elif root_logger_level >= logging.WARNING:
+			dbio_args.append('-q')
 
-		load_args = dbio_args + ['load', load_db_url, table, PIPE_NAME]
+		# Args for 'load' subcommand
+		load_args = ['load', load_db_url, table, PIPE_NAME]
 		if append:
 			load_args.append('--append')
 		if analyze:
 			load_args.append('--analyze')
+		__append_csv_args(load_args, csv_params, null_string)
+		reader_args = dbio_args + load_args
 
-		query_args = dbio_args + ['query', query_db_url, query, PIPE_NAME, 
-								  '--batchsize', str(PIPE_WRITE_BATCH)]
-
+		# Args for 'query' subcommand
+		query_args  = ['query', query_db_url, query, PIPE_NAME, '--batchsize', str(PIPE_WRITE_BATCH)]
 		if query_is_file:
 			query_args.append('--file')
+		__append_csv_args(query_args, csv_params, null_string)
+		writer_args = dbio_args + query_args
 
 		# To allow for virtualenvs:
 		env = os.environ.copy()
 		env['PATH'] += os.pathsep + os.pathsep.join(sys.path)
 
-		logger.debug("Reader call: " + ' '.join(load_args))
-		reader_process = subprocess.Popen(load_args, env=env)
+		logger.debug("Reader call: " + ' '.join(reader_args))
+		reader_process = subprocess.Popen(reader_args, env=env)
 
-		logger.debug("Writer call: " + ' '.join(query_args))
-		writer_process = subprocess.Popen(query_args, env=env)
+		logger.debug("Writer call: " + ' '.join(writer_args))
+		writer_process = subprocess.Popen(writer_args, env=env)
 
 		try:
 			while True:
@@ -202,19 +205,21 @@ def replicate(query_db_url, load_db_url, query, table, append, query_is_file=Fal
 
 
 def replicate_no_fifo(query_db_url, load_db_url, query, table, append, 
-						query_is_file=False, csv_params=CSV_PARAMS_DEFAULT, 
-						analyze=False, null_string=NULL_STRING_DEFAULT):
+					  query_is_file=False, analyze=False):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
 
 	logger.info("Beginning replication.")
 
+	load_db = __get_database(load_db_url)
+	csv_params = load_db.DEFAULT_CSV_PARAMS
+	null_string = load_db.DEFAULT_NULL_STRING
 
 	temp_file = tempfile.NamedTemporaryFile()
 	try:
 		query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
-				null_string=null_string)
+			  csv_params=csv_params, null_string=null_string)
 		load(load_db_url, table, temp_file.name, append,
 				csv_params=csv_params, analyze=analyze, null_string=null_string)
 	finally:
@@ -228,27 +233,22 @@ def __file_to_str(fname):
 		return f.read()
 
 
-def __get_dbio_args(csv_params, null_string):
-	dbio_args = ['dbio']
+def __append_csv_args(args, csv_params, null_string):
+	args.append('-ns')
+	args.append(null_string)
+	args.append('-d')
+	args.append(csv_params['delimiter'])
+	if csv_params['escapechar']:
+		args.append('-esc')
+		args.append(csv_params['escapechar'])
+	args.append('-l')
+	args.append(csv_params['lineterminator'])
+	args.append('-e')
+	args.append(csv_params['encoding'])
+	if csv_params['quoting'] == unicodecsv.QUOTE_ALL:
+		args.append('-qc')
+		args.append(csv_params['quotechar'])
 
-	dbio_args.append('-ns')
-	dbio_args.append(null_string)
-	dbio_args.append('-d')
-	dbio_args.append(csv_params['delimiter'])
-	dbio_args.append('-esc')
-	dbio_args.append(csv_params['escapechar'])
-	dbio_args.append('-l')
-	dbio_args.append(csv_params['lineterminator'])
-	dbio_args.append('-e')
-	dbio_args.append(csv_params['encoding'])
-
-	root_logger_level = logging.getLogger().level
-	if root_logger_level <= logging.DEBUG:
-		dbio_args.append('-v')
-	elif root_logger_level >= logging.WARNING:
-		dbio_args.append('-q')
-
-	return dbio_args
 
 def __get_database(url):
 	sqla_url = sqlalchemy.engine.url.make_url(url)

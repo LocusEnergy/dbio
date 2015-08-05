@@ -1,6 +1,7 @@
 # PyPI packages
 import MySQLdb.cursors
 import sqlalchemy
+import unicodecsv
 
 # Local modules
 from base import Exportable, Importable
@@ -17,14 +18,29 @@ class MySQL(Exportable, Importable):
 	CREATE_STAGING_CMD = "CREATE TABLE {staging} LIKE {table};"
 
 	LOAD_CMD = ("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table} "
-				"FIELDS TERMINATED BY '\{delimiter}' ENCLOSED BY '\{quotechar}' "
-				"ESCAPED BY '\{escapechar}' LINES TERMINATED BY '\{lineterminator}';")
+				"FIELDS "
+				"TERMINATED BY '\{delimiter}' "
+				"ESCAPED BY '\{escapechar}' "
+				"ENCLOSED BY '\{quotechar}' "
+				"LINES "
+				"TERMINATED BY '\{lineterminator}';")
 
 	ANALYZE_CMD = ("ANALYZE TABLE {table};")
 
 	SWAP_AND_DROP_CMD = ("RENAME TABLE {table} TO {temp}, {staging} TO {table}, "
 		 				 "{temp} TO {staging};"
 		 				 "DROP TABLE {staging};")
+
+	DEFAULT_CSV_PARAMS = {
+						'delimiter' : ',', 
+						'escapechar' : '\\',
+						'lineterminator' : '\n',
+						'quotechar' : '"',
+						'encoding' : 'utf-8',
+						'quoting' : unicodecsv.QUOTE_ALL
+	}
+
+	DEFAULT_NULL_STRING = '\\N'
 
 	def __init__(self, url):
 		self.url = url
@@ -42,7 +58,7 @@ class MySQL(Exportable, Importable):
 		return sqlalchemy.create_engine(self.url, connect_args={'local_infile' : 1})
 
 
-	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
+	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:

@@ -24,12 +24,12 @@ if (sys.version_info[0], sys.version_info[1]) != (2,7):
 
 setup(
 	name='dbio',
-	version='0.2.0',
+	version='0.3.0',
 	author='Locus Energy',
 	author_email='dbio@locusenergy.com',
 	license='MIT',
 	url='https://github.com/locusenergy/dbio',
-	download_url='https://github.com/LocusEnergy/dbio/tarball/0.2.0',
+	download_url='https://github.com/LocusEnergy/dbio/tarball/0.3.0',
 	description='Simple module for database I/O operations.',
 	long_description=open("README.rst").read(),
 	classifiers=[

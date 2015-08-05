@@ -1,5 +1,10 @@
 import importlib
 
+from base import Importable
+
+DEFAULT_CSV_PARAMS = Importable.DEFAULT_CSV_PARAMS
+DEFAULT_NULL_STRING = Importable.DEFAULT_NULL_STRING
+
 """ This fancy dynamic importing is just to allow for use of the library without having
 	all of the DB API modules installed. """
 

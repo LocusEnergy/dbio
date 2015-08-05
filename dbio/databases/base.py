@@ -1,6 +1,6 @@
 # PyPI packages
 import sqlalchemy
-
+import unicodecsv
 
 class Exportable():
 
@@ -19,6 +19,16 @@ class Exportable():
 
 class Importable():
 
+	DEFAULT_CSV_PARAMS = {
+						'delimiter' : ',', 
+						'escapechar' : '\\',
+						'lineterminator' : '\n',
+						'encoding' : 'utf-8',
+						'quoting' : unicodecsv.QUOTE_NONE
+	}
+
+	DEFAULT_NULL_STRING = 'NULL'
+
 	def __init__(self, url):
 		""" 
 			:param url: sqlalchemy engine creation url.
@@ -35,7 +45,7 @@ class Importable():
 		return sqlalchemy.create_engine(self.url)
 
 
-	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
+	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string='\N'):
 		""" Database specific implementation of loading from a CSV
 
 			:param table: destination for the load operation.

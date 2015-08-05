@@ -1,15 +1,17 @@
+# PyPI packages
+import unicodecsv
+
 # Local modules
 from base import Exportable, Importable
 
 
-
-
-
 class PostgreSQL(Exportable, Importable):
 
-	COPY_CMD = ("COPY {table} FROM STDIN CSV "
-				"DELIMITER '{delimiter}' ESCAPE '{escapechar}' "
-				"NULL '{nullstring}' QUOTE '{quotechar}'; ")
+	COPY_CMD = ("COPY {table} FROM STDIN WITH "
+				"CSV "
+				"DELIMITER '{delimiter}' "
+				"NULL '{null_string}' "
+				"ESCAPE '{escapechar}' ")
 
 	CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table});"
 
@@ -20,12 +22,22 @@ class PostgreSQL(Exportable, Importable):
 						 "ALTER TABLE {temp} RENAME TO {staging};"
 						 "DROP TABLE {staging};")
 
+	DEFAULT_CSV_PARAMS = {
+						'delimiter' : ',', 
+						'escapechar' : '\\',
+						'lineterminator' : '\n',
+						'encoding' : 'utf-8',
+						'quoting' : unicodecsv.QUOTE_NONE
+	}
+
+	DEFAULT_NULL_STRING = 'NULL'
+
 	def __init__(self, url):
 		Exportable.__init__(self, url)
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string=''):
+	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -45,7 +57,7 @@ class PostgreSQL(Exportable, Importable):
 			raw_cursor = connection.connection.cursor()
 			with open(filename, 'r') as f:
 				raw_cursor.copy_expert(
-					self.COPY_CMD.format(table=copy_table, nullstring=null_string, 
+					self.COPY_CMD.format(table=copy_table, null_string=null_string, 
 											**csv_params), f)
 				raw_cursor.close()
 

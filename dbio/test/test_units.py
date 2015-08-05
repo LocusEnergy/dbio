@@ -13,6 +13,8 @@ import sqlalchemy
 
 # Local modules
 import dbio
+import dbio.databases
+
 
 
 #############
@@ -46,44 +48,12 @@ def test_query(monkeypatch):
 
 	# Check that query produces the file that we expect
 	check_file = tempfile.NamedTemporaryFile()
-	write_rows_to_file(mock_results, check_file.name, dbio.io.CSV_PARAMS_DEFAULT)
+	write_rows_to_file(mock_results, check_file.name, dbio.databases.DEFAULT_CSV_PARAMS)
 	assert filecmp.cmp(test_file.name, check_file.name, shallow=False)
 
 	# Cleanup
 	test_file.close()
 	check_file.close()
-
-
-def test_query_with_null_string(monkeypatch):
-	""" Test that specifying a null character works correctly. """
-	# Mocking
-	mock_url = 'mock_url'
-	mock_db = MockDatabase(mock_url)
-
-	def mockdb(url):
-		return mock_db
-
-	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
-
-	mock_query = 'mock_query'
-	mock_results = [(1, 2, None)]
-	mock_batch_size = 100
-	mock_db.engine.connection.results.rows = mock_results
-	test_file = tempfile.NamedTemporaryFile()
-
-	# Tested method
-	dbio.query(mock_url, mock_query, test_file.name, batch_size=mock_batch_size, null_string='\N')
-
-	# Check that the query has been executed and results fetched
-	assert mock_db.engine.connection.exec_options == {'stream_results':True, 'max_row_buffer':mock_batch_size}
-	assert mock_db.engine.connection.results.all_rows_fetched
-	assert mock_db.engine.connection.executed_commands == [mock_query]
-
-	# Check that query produces the file that we expect
-	assert test_file.read() == '"1","2","\N"\r\n'
-
-	# Cleanup
-	test_file.close()
 
 
 def test_load(monkeypatch):
@@ -100,12 +70,18 @@ def test_load(monkeypatch):
 	mock_table = 'mock_table'
 	mock_fname = 'mock_fname'
 	mock_append = True
-	check_execute_import_args = [mock_table, mock_fname, 
-						dbio.io.CSV_PARAMS_DEFAULT, mock_append]
+	mock_csv_params = {}
+	mock_null_string = 'mock_null_string'
+	mock_analyze = True
+	
+
+	check_execute_import_args = [mock_table, mock_fname, mock_append, mock_csv_params, 
+								 mock_null_string, mock_analyze]
 	mock_db.cmds = ['mock_cmd1', 'mock_cmd2', 'mock_cmd3']
 
 	# Tested method
-	dbio.load(mock_url, mock_table, mock_fname, True)
+	dbio.load(mock_url, mock_table, mock_fname, True, csv_params=mock_csv_params, 
+			  null_string=mock_null_string, analyze=mock_analyze)
 
 	# Check commands are passed to execute_import correctly
 	assert check_execute_import_args == mock_db.execute_import_args
@@ -121,6 +97,13 @@ def test_replicate(monkeypatch):
 
 	mock_reader = MockPopen()
 	mock_writer = MockPopen()
+
+	mock_db = MockDatabase(mock_url)
+
+	def mockdb(url):
+		return mock_db
+
+	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
 
 	def mockpopen(args, **kwargs):
 		# Check that Popen is called correcty.
@@ -154,6 +137,13 @@ def test_replicate_with_failing_reader(monkeypatch):
 	mock_reader = MockPopen()
 	mock_reader.returncode = -1
 	mock_writer = MockPopen()
+
+	mock_db = MockDatabase(mock_url)
+
+	def mockdb(url):
+		return mock_db
+
+	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
 
 	def mockpopen(args, **kwargs):
 		# Check that Popen is called correcty.
@@ -195,6 +185,13 @@ def test_replicate_with_failing_writer(monkeypatch):
 	mock_reader = MockPopen()
 	mock_writer = MockPopen()
 	mock_writer.returncode = -1
+
+	mock_db = MockDatabase(mock_url)
+
+	def mockdb(url):
+		return mock_db
+
+	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
 
 	def mockpopen(args, **kwargs):
 		# Check that Popen is called correcty.
@@ -238,6 +235,13 @@ def test_replicate_with_failing_rw(monkeypatch):
 	mock_writer = MockPopen()
 	mock_writer.returncode = -1
 
+	mock_db = MockDatabase(mock_url)
+
+	def mockdb(url):
+		return mock_db
+
+	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
+
 	def mockpopen(args, **kwargs):
 		# Check that Popen is called correcty.
 		assert args[0] == 'dbio'
@@ -276,10 +280,16 @@ def test_replicate_no_fifo(monkeypatch):
 	mock_append = True
 	mock_query_is_file = True
 	mock_analyze = True
-	mock_null_string = 'NONE'
 
 	query_called_with = {}
 	load_called_with = {}
+
+	mock_db = MockDatabase(mock_url)
+
+	def mockdb(url):
+		return mock_db
+
+	monkeypatch.setattr(dbio.io, '__get_database', mockdb)
 
 	def mock_query(*args, **kwargs):
 		query_called_with['args'] = args
@@ -294,15 +304,16 @@ def test_replicate_no_fifo(monkeypatch):
 
 	dbio.replicate_no_fifo(mock_url, mock_url, mock_query, mock_table, 
 						mock_append, query_is_file=mock_query_is_file, 
-						analyze=mock_analyze, null_string=mock_null_string)
+						analyze=mock_analyze)
 
 	fname = query_called_with['args'][2]
 
 	correct_query_args = (mock_url, mock_query, fname)
-	correct_query_kwargs = {'query_is_file' : mock_query_is_file, 'null_string' : mock_null_string}
+	correct_query_kwargs = {'query_is_file' : mock_query_is_file, 'csv_params' : dbio.databases.DEFAULT_CSV_PARAMS,
+							'null_string' : dbio.databases.DEFAULT_NULL_STRING}
 	correct_load_args = (mock_url, mock_table, fname, mock_append)
-	correct_load_kwargs = {'analyze' : mock_analyze, 'csv_params' : dbio.io.CSV_PARAMS_DEFAULT,
-							'null_string' : mock_null_string}
+	correct_load_kwargs = {'analyze' : mock_analyze, 'csv_params' : dbio.databases.DEFAULT_CSV_PARAMS,
+							'null_string' : dbio.databases.DEFAULT_NULL_STRING}
 
 	assert load_called_with['args'] == correct_load_args
 	assert load_called_with['kwargs'] == correct_load_kwargs
@@ -336,7 +347,7 @@ def test_sqlite():
 	
 	
 	row_data = get_rows(num_rows, num_fields, max_field_length, alphabet, True)
-	write_rows_to_file(row_data, data_file.name, dbio.io.CSV_PARAMS_DEFAULT)
+	write_rows_to_file(row_data, data_file.name, dbio.databases.DEFAULT_CSV_PARAMS)
 
 	dbio.load(query_db_url, query_table, data_file.name, False)
 
@@ -436,6 +447,10 @@ class MockEngine():
 class MockDatabase():
 	""" Mocks both an Importable and an Exportable object. """
 
+	DEFAULT_CSV_PARAMS = dbio.databases.DEFAULT_CSV_PARAMS
+
+	DEFAULT_NULL_STRING = dbio.databases.DEFAULT_NULL_STRING
+
 	def __init__(self, url):
 		self.url = url
 		self.engine = MockEngine()
@@ -451,8 +466,8 @@ class MockDatabase():
 		return self.engine
 
 
-	def execute_import(self, table, data_file, csv_params, append):
-		self.execute_import_args = [table, data_file, csv_params, append]
+	def execute_import(self, table, data_file, append, csv_params, null_string, analyze=False):
+		self.execute_import_args = [table, data_file, append, csv_params, null_string, analyze]
 
 
 class MockPopen():

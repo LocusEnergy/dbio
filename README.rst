@@ -64,23 +64,6 @@ Tests can be run with
 Operations
 ----------
 
-All operations support custom CSV parameters, which can be supplied via
-the command line with the following optional arguments (placed after
-``dbio`` and before ``op_name``).
-
--  ``-ns``: a string to write in place of None (NULL) values. Defaults
-   to the empty string.
--  ``-d``: field delimiter character. Defaults to ``','``.
--  ``-esc``: escape character. Defaults to ``'\'``.
--  ``-l``: line/record terminator. Defaults to ``'\r\n'``.
--  ``-e``: encoding. Defaults to ``'utf-8'``.
-
-Some databases (e.g. Vertica, PostgreSQL) allow specifying a specific
-string to represent NULL values. MySQL only allows "\\N", so if you wish to
-make a MySQL table the target of a **load** or **replicate** operation,
-and you also wish to distinguish between NULL and the empty string, use
-``dbio -ns "\N" replicate query_db_url mysql_url query mysql_table``.
-
 Replicate
 ~~~~~~~~~
 
@@ -113,6 +96,8 @@ acting as the pipe reader, and the query object acting as the pipe
 writer. This allows query results to be streamed directly into the
 database's preferred method of import.
 
+For a detailed explanation, see `this blog post <http://blog.locusenergy.com/2015/08/04/moving-bulk-data/>`__.
+
 Load
 ~~~~
 
@@ -129,6 +114,13 @@ Optional flags:
 -  ``-a``: runs in append mode. Rows that were in the loading database
    before replication are preserved.
 -  ``-z``: analyzes ``table`` after completing the load.
+- csv flags:
+    * ``-qc``: character to enclose fields. If not included, fields are not enclosed.
+    * ``-ns``: string to replace NULL fields. Defaults to "NULL".
+    * ``-d``: field separation character. Defaults to ",".
+    * ``-esc``: escape character. Defaults to "\".
+    * ``-l``: record terminator. Defaults to "\n".
+    * ``-e``: character encoding. Defaults to "utf-8"
 
 Query
 ~~~~~
@@ -144,6 +136,13 @@ Optional flags:
 
 -  ``-f``: indicates that ``query`` is the name of a file.
 -  ``-b``: specify ``batch_size``, which determines the number of rows. to store in memory before writing to the file. Defaults to 1,000,000.
+- csv flags:
+    * ``-qc``: character to enclose fields. If not included, fields are not enclosed.
+    * ``-ns``: string to replace NULL fields. Defaults to "NULL".
+    * ``-d``: field separation character. Defaults to ",".
+    * ``-esc``: escape character. Defaults to "\".
+    * ``-l``: record terminator. Defaults to "\n".
+    * ``-e``: character encoding. Defaults to "utf-8"
 
 
 Databases
@@ -170,9 +169,6 @@ Included in the Python standard library. Note that the SQLite python
 library has no method designed for bulk-loading from CSV, so batch
 insert statements are used, which may cause bottlenecks that are not
 present for other databases.
-
-Note: Currently importing NULL values does not work correctly, even with
-a specified null\_string. This is a limitation of Python's CSV reader.
 
 Vertica:
 ~~~~~~~~
@@ -207,17 +203,23 @@ Query a Vertica database and stream the results into a MySQL table with a schema
 
 ::
 
-    dbio -ns "\N" replicate "vertica+vertica_python://user:pwd@host:port/database" "mysql://user:pwd@host:port/database" "SELECT * FROM vertica_table" mysql_table
+    dbio replicate "vertica+vertica_python://user:pwd@host:port/database" "mysql://user:pwd@host:port/database" "SELECT * FROM vertica_table" mysql_table
 
 Load foo.csv with "|" field delimiters into a PostgreSQL table:
 
 ::
 
-    dbio -d "|" load "postgresql://user:pwd@host:port/database" foo_table foo.csv
+    dbio load "postgresql://user:pwd@host:port/database" foo_table foo.csv -d "|"
 
 
 Query a SQLite table using a query file and write the results to a CSV with NULL represented by "NULL" and lines terminated with "\\n".
 
 ::
 
-    dbio -ns NULL -l "\n" query "sqlite:///path/to/sqlite/db/file.db" foo_query.sql foo.csv -f
+    dbio query "sqlite:///path/to/sqlite/db/file.db" foo_query.sql foo.csv -f -ns NULL -l "\n"
+
+Changelog
+---------
+- 0.1.1: Initial public release.
+- 0.2.0: Add ANALYZE support.
+- 0.3.0: Handle replication CSV formatting automatically.
