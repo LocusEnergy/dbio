@@ -17,6 +17,8 @@ class MySQL(Exportable, Importable):
 
 	CREATE_STAGING_CMD = "CREATE TABLE {staging} LIKE {table};"
 
+	DISABLE_KEYS = "ALTER TABLE {table} DISABLE KEYS;"
+
 	LOAD_CMD = ("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table} "
 				"FIELDS "
 				"TERMINATED BY '\{delimiter}' "
@@ -24,6 +26,8 @@ class MySQL(Exportable, Importable):
 				"ENCLOSED BY '\{quotechar}' "
 				"LINES "
 				"TERMINATED BY '\{lineterminator}';")
+
+	ENABLE_KEYS = "ALTER TABLE {table} ENABLE KEYS;"
 
 	ANALYZE_CMD = ("ANALYZE TABLE {table};")
 
@@ -58,7 +62,8 @@ class MySQL(Exportable, Importable):
 		return sqlalchemy.create_engine(self.url, connect_args={'local_infile' : 1})
 
 
-	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -77,8 +82,14 @@ class MySQL(Exportable, Importable):
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
+			if disable_indices:
+				connection.execute(self.DISABLE_KEYS.format(table=load_table))
+
 			connection.execute(
 					self.LOAD_CMD.format(table=load_table, filename=filename, **csv_params))
+
+			if disable_indices:
+				connection.execute(self.ENABLE_KEYS.format(table=load_table))
 
 			if analyze:
 				connection.execute(self.ANALYZE_CMD.format(table=load_table))

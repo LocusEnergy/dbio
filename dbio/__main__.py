@@ -10,8 +10,9 @@ import io
 
 def load(args):
 	csv_params = __get_csv_params(args)
-	io.load(args.db_url, args.table, args.filename, args.append, 
-			csv_params=csv_params, analyze=args.analyze, null_string=args.null_string)
+	io.load(args.db_url, args.table, args.filename, args.append, analyze=args.analyze,
+			disable_indices=args.disable_indices, csv_params=csv_params,  
+			null_string=args.null_string)
 
 
 def query(args):
@@ -22,11 +23,14 @@ def query(args):
 
 def replicate(args):
 	if args.fifo:
-		io.replicate(args.query_db_url, args.load_db_url, args.query, args.table,
-					 args.append, query_is_file=args.from_file, analyze=args.analyze)
+		io.replicate(args.query_db_url, args.load_db_url, args.query, args.table, 
+					 args.append, analyze=args.analyze, disable_indices=args.disable_indices,
+					 query_is_file=args.from_file)
 	else:
 		io.replicate_no_fifo(args.query_db_url, args.load_db_url, args.query, args.table, 
-							 args.append, query_is_file=args.from_file, analyze=args.analyze)
+							 args.append, analyze=args.analyze, 
+							 disable_indices=args.disable_indices,
+							 query_is_file=args.from_file)
 
 
 def main():
@@ -76,6 +80,9 @@ def __setup_replicate_parser(subparsers):
 	replicate_parser.add_argument('-z', '--analyze', dest='analyze', action='store_true',
 									help=("If this flag is included, a table analysis for query "
 										"optimization will be executed immediately after loading."))
+	replicate_parser.add_argument('-i', '--disable-indices', dest='disable_indices', action='store_true',
+								help=("If this flag is included, any table indices will be dropped "
+										"before loading and recreated after."))
 	replicate_parser.add_argument('-nf', '--no-fifo', dest='fifo', action='store_false', 
 									help="Include to avoid using mkfifo(), a Unix-only operation.")
 	
@@ -116,6 +123,9 @@ def __setup_load_parser(subparsers):
 	load_parser.add_argument('-z', '--analyze', dest='analyze', action='store_true',
 								help=("If this flag is included, a table analysis for query "
 										"optimization will be executed immediately after loading."))
+	load_parser.add_argument('-i', '--disable-indices', dest='disable_indices', action='store_true',
+								help=("If this flag is included, any table indices will be dropped "
+										"before loading and recreated after."))
 
 	# CSV ARGS
 	load_parser.add_argument('-qc', '--quotechar', default=None, help='Character to enclose fields. If not included, fields are not enclosed.')

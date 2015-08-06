@@ -38,7 +38,10 @@ class Vertica(Exportable, Importable):
 		Importable.__init__(self, url)
 		
 
-	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
+		""" Vertica has no indices, so disable_indices doesn't apply """
+		
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -101,7 +104,8 @@ class VerticaODBC(Exportable, Importable):
 		Importable.__init__(self, url)
 		
 
-	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:

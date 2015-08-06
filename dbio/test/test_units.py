@@ -74,15 +74,17 @@ def test_load(monkeypatch):
 	mock_csv_params = {}
 	mock_null_string = 'mock_null_string'
 	mock_analyze = True
+	mock_disable_indices = True
 	
 
 	check_execute_import_args = [mock_table, mock_fname, mock_append, mock_csv_params, 
-								 mock_null_string, mock_analyze]
+								 mock_null_string, mock_analyze, mock_disable_indices]
 	mock_db.cmds = ['mock_cmd1', 'mock_cmd2', 'mock_cmd3']
 
 	# Tested method
 	dbio.load(mock_url, mock_table, mock_fname, True, csv_params=mock_csv_params, 
-			  null_string=mock_null_string, analyze=mock_analyze)
+			  null_string=mock_null_string, analyze=mock_analyze,
+			  disable_indices=mock_disable_indices)
 
 	# Check commands are passed to execute_import correctly
 	assert check_execute_import_args == mock_db.execute_import_args
@@ -281,6 +283,7 @@ def test_replicate_no_fifo(monkeypatch):
 	mock_append = True
 	mock_query_is_file = True
 	mock_analyze = True
+	mock_disable_indices = True
 
 	query_called_with = {}
 	load_called_with = {}
@@ -305,7 +308,7 @@ def test_replicate_no_fifo(monkeypatch):
 
 	dbio.replicate_no_fifo(mock_url, mock_url, mock_query, mock_table, 
 						mock_append, query_is_file=mock_query_is_file, 
-						analyze=mock_analyze)
+						analyze=mock_analyze, disable_indices=mock_disable_indices)
 
 	fname = query_called_with['args'][2]
 
@@ -314,7 +317,8 @@ def test_replicate_no_fifo(monkeypatch):
 							'null_string' : dbio.databases.DEFAULT_NULL_STRING}
 	correct_load_args = (mock_url, mock_table, fname, mock_append)
 	correct_load_kwargs = {'analyze' : mock_analyze, 'csv_params' : dbio.databases.DEFAULT_CSV_PARAMS,
-							'null_string' : dbio.databases.DEFAULT_NULL_STRING}
+							'null_string' : dbio.databases.DEFAULT_NULL_STRING,
+							'disable_indices' : mock_disable_indices}
 
 	assert load_called_with['args'] == correct_load_args
 	assert load_called_with['kwargs'] == correct_load_kwargs
@@ -472,8 +476,9 @@ class MockDatabase():
 		return self.engine
 
 
-	def execute_import(self, table, data_file, append, csv_params, null_string, analyze=False):
-		self.execute_import_args = [table, data_file, append, csv_params, null_string, analyze]
+	def execute_import(self, table, data_file, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
+		self.execute_import_args = [table, data_file, append, csv_params, null_string, analyze, disable_indices]
 
 
 class MockPopen():

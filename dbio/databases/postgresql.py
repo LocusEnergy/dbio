@@ -11,9 +11,14 @@ class PostgreSQL(Exportable, Importable):
 				"CSV "
 				"DELIMITER '{delimiter}' "
 				"NULL '{null_string}' "
-				"ESCAPE '{escapechar}' ")
+				"ESCAPE '{escapechar}';")
 
-	CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table});"
+	SELECT_INDICES_CMD = ("SELECT indexname, indexdef FROM pg_catalog.pg_indexes "
+							"WHERE tablename='{table}';")
+
+	DROP_INDICES_CMD = ("DROP INDEX {indices};")
+
+	CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table} INCLUDING ALL);"
 
 	ANALYZE_CMD = "ANALYZE {table};"
 
@@ -37,7 +42,8 @@ class PostgreSQL(Exportable, Importable):
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -53,6 +59,20 @@ class PostgreSQL(Exportable, Importable):
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
+			if disable_indices:
+				# fetch index information from pg_catalog
+				results = connection.execute(self.SELECT_INDICES_CMD.format(table=copy_table))
+				index_names = []
+				index_creates = []
+				for row in results:
+					index_names.append(row[0])
+					index_creates.append(row[1])
+				results.close()
+
+				# drop the entire list of indices in a single DROP INDEX, if any exist
+				if index_names:
+					connection.execute(self.DROP_INDICES_CMD.format(indices=','.join(index_names)))
+
 			# get psycopg2 cursor object to access copy_expert()
 			raw_cursor = connection.connection.cursor()
 			with open(filename, 'r') as f:
@@ -60,6 +80,11 @@ class PostgreSQL(Exportable, Importable):
 					self.COPY_CMD.format(table=copy_table, null_string=null_string, 
 											**csv_params), f)
 				raw_cursor.close()
+
+			if disable_indices:
+				# create indices from 'indexdef'
+				for index_create_cmd in index_creates:
+					connection.execute(index_create_cmd)
 
 			if analyze:
 				connection.execute(self.ANALYZE_CMD.format(table=copy_table))

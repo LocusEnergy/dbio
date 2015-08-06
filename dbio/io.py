@@ -78,17 +78,20 @@ def query(sqla_url, query, filename, query_is_file=False,
 	return rows_written
 
 
-def load(sqla_url, table, filename, append, csv_params=DEFAULT_CSV_PARAMS, analyze=False,
-			null_string=DEFAULT_NULL_STRING):
+def load(sqla_url, table, filename, append, disable_indices=False, analyze=False,
+		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING):
 	""" Import data from a csv file to a database table. 
 
 		:param sqla_url: SQLAlchemy url string to pass to create_engine().
 		:param table: Table in database to load data from filename.
 		:param filename: Name of csv file to load from.
 		:param append: If True, any data already in the table will be preserved.
-		:param csv_params: Dictionary of csv parameters.
 		:param analyze: If True, the table will be will be analyzed for 
 					query optimization immediately after importing.
+		:param disable_indices: If True, table will temporarily disable or drop indices
+								for the duration of the load in the attempt of speeding 
+								up the operation.
+		:param csv_params: Dictionary of csv parameters.
 		:param null_string: String to represent null values with.
 
 	"""
@@ -97,13 +100,13 @@ def load(sqla_url, table, filename, append, csv_params=DEFAULT_CSV_PARAMS, analy
 
 	db = __get_database(sqla_url)
 	db.execute_import(table, filename, append, csv_params, null_string,
-						analyze=analyze)
+						analyze=analyze, disable_indices=disable_indices)
 
 	logger.info("Load from csv completed.")
 
 
-def replicate(query_db_url, load_db_url, query, table, append, 
-			  query_is_file=False, analyze=False):
+def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
+			  disable_indices=False, query_is_file=False):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -116,6 +119,11 @@ def replicate(query_db_url, load_db_url, query, table, append,
 		:param query: SQL query string to execute.
 		:param table: Table in database to load data from filename.
 		:param append: If True, any data already in the table will be preserved.
+		:param analyze: If True, the table will be will be analyzed for 
+					query optimization immediately after importing.
+		:param disable_indices: If True, table will temporarily disable or drop indices
+								for the duration of the load in the attempt of speeding 
+								up the operation.
 		:param query_is_file: If True, the query argument is a filename.
 
 
@@ -146,6 +154,8 @@ def replicate(query_db_url, load_db_url, query, table, append,
 			load_args.append('--append')
 		if analyze:
 			load_args.append('--analyze')
+		if disable_indices:
+			load_args.append('--disable-indices')
 		__append_csv_args(load_args, csv_params, null_string)
 		reader_args = dbio_args + load_args
 
@@ -206,8 +216,8 @@ def replicate(query_db_url, load_db_url, query, table, append,
 	logger.info("Replication completed.")
 
 
-def replicate_no_fifo(query_db_url, load_db_url, query, table, append, 
-					  query_is_file=False, analyze=False):
+def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=False,
+					  disable_indices=False, query_is_file=False):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
@@ -222,8 +232,8 @@ def replicate_no_fifo(query_db_url, load_db_url, query, table, append,
 	try:
 		query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
 			  csv_params=csv_params, null_string=null_string)
-		load(load_db_url, table, temp_file.name, append,
-				csv_params=csv_params, analyze=analyze, null_string=null_string)
+		load(load_db_url, table, temp_file.name, append, analyze=analyze, 
+			 disable_indices=disable_indices, csv_params=csv_params, null_string=null_string)
 	finally:
 		temp_file.close()
 

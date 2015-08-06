@@ -7,7 +7,13 @@ from base import Exportable, Importable
 
 class SQLite(Exportable, Importable):
 
-	CREATE_STAGING_CMD = "CREATE TABLE {staging} AS SELECT * FROM {table} WHERE 0;"
+	SELECT_CREATE_CMD = ("SELECT sql FROM sqlite_master "
+						  "WHERE type='table' AND name='{table}';")
+
+	SELECT_INDICES_CMD = ("SELECT name, sql FROM sqlite_master "
+						   "WHERE type='index' AND tbl_name='{table}';")
+
+	DROP_INDEX_CMD = "DROP INDEX {index};"
 
 	INSERT_CMD = "INSERT INTO {table} VALUES {values};";
 
@@ -25,7 +31,8 @@ class SQLite(Exportable, Importable):
 		Importable.__init__(self, url)
 
 
-	def execute_import(self, table, filename, append, csv_params, null_string, analyze=False):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -38,8 +45,23 @@ class SQLite(Exportable, Importable):
 		# Start transaction
 		with eng.begin() as connection:
 			if not append:
-				connection.execute(
-					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+				results = connection.execute(self.SELECT_CREATE_CMD.format(table=table))
+				create_cmd = results.fetchone()[0]
+				results.close()
+				connection.execute(create_cmd.replace(table, staging))
+
+			if disable_indices:
+				# fetch index information from sqlite_master
+				results = connection.execute(self.SELECT_INDICES_CMD.format(table=copy_table))
+				index_names = []
+				index_creates = []
+				for row in results:
+					index_names.append(row[0])
+					index_creates.append(row[1])
+				results.close()
+
+				for index in index_names:
+					connection.execute(self.DROP_INDEX_CMD.format(index=index))
 
 			with open(filename, 'rb') as f:
 				reader = unicodecsv.reader(f, **csv_params)
@@ -56,6 +78,11 @@ class SQLite(Exportable, Importable):
 				if values:
 					connection.execute(self.INSERT_CMD.format(
 											table=insert_table, values=','.join(values)))
+
+			if disable_indices:
+				# create indices from 'sql'
+				for index_create_cmd in index_creates:
+					connection.execute(index_create_cmd)
 
 			if analyze:
 				connection.execute(self.ANALYZE_CMD.format(table=insert_table))

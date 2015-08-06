@@ -44,7 +44,8 @@ class Importable():
 		return sqlalchemy.create_engine(self.url)
 
 
-	def execute_import(self, table, filename, csv_params, append, analyze=False, null_string='\N'):
+	def execute_import(self, table, filename, append, csv_params, null_string, 
+						analyze=False, disable_indices=False):
 		""" Database specific implementation of loading from a CSV
 
 			:param table: destination for the load operation.
@@ -55,6 +56,8 @@ class Importable():
 					data_source after loading.
 			:param analyze: If True, the table will be will be analyzed for 
 					query optimization immediately after importing.
+			:param disable_indices: If True, table will temporarily disable or drop indices
+					in the attempts of speeding up the load. 
 			:param null_string: String to replace NULL values with when importing.
 
 		"""
