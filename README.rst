@@ -53,6 +53,8 @@ All operations require an `SQLAlchemy
 URL <http://docs.sqlalchemy.org/en/rel_1_0/core/engines.html#database-urls>`__
 for each database used in the operation.
 
+For more detailed information on calling scripts within Python, `check out the documentation <http://pythonhosted.org/dbio/>`__.
+
 Logging is supported via the Python ``logging`` module.
 
 Tests can be run with
@@ -220,6 +222,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.3.4: Link to documentation in README.rst.
 - 0.3.3: Added public documentation and minor fixes.
 - 0.3.2: Fixed minor vertica.py bugs.
 - 0.3.1: Fixed critical CLI bug.
