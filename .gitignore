@@ -1,6 +1,6 @@
 *.pyc
 dbio/test/__pycache__/
 dev/
-doc/
 dist/
+doc/build/
 dbio.egg-info/

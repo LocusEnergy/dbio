@@ -72,6 +72,8 @@ def query(sqla_url, query, filename, query_is_file=False,
 			rows_written += len(rows)
 			rows = results.fetchmany(batch_size)
 
+	results.close()
+
 	logger.info("Query to csv completed.")
 	return rows_written
 

@@ -45,6 +45,7 @@ def test_query(monkeypatch):
 	# Check that the query has been executed and results fetched
 	assert mock_db.engine.connection.results.all_rows_fetched
 	assert mock_db.engine.connection.executed_commands == [mock_query]
+	assert mock_db.engine.connection.results.closed
 
 	# Check that query produces the file that we expect
 	check_file = tempfile.NamedTemporaryFile()
@@ -377,6 +378,7 @@ class MockResults():
 		self.rows = []
 		self.rows_fetched = 0
 		self.all_rows_fetched = False
+		self.closed = False
 
 
 	def fetchmany(self, rows_to_fetch):
@@ -390,6 +392,10 @@ class MockResults():
 			self.all_rows_fetched = True
 
 		return results
+
+
+	def close(self):
+		self.closed = True
 
 
 class MockConnection():

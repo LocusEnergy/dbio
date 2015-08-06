@@ -3,6 +3,7 @@ import sqlalchemy
 import unicodecsv
 
 class Exportable():
+	""" Designed to be the target of **query** operations. """
 
 	def __init__(self, url):
 		"""
@@ -13,11 +14,12 @@ class Exportable():
 	
 
 	def get_export_engine(self):
-		""" :return: an sqlalchemy engine object. """
+		""" :return: sqlalchemy engine object. """
 		return sqlalchemy.create_engine(self.url)
 
 
 class Importable():
+	""" Designed to be the target of **load** operations. """
 
 	DEFAULT_CSV_PARAMS = {
 						'delimiter' : ',', 
@@ -32,16 +34,13 @@ class Importable():
 	def __init__(self, url):
 		""" 
 			:param url: sqlalchemy engine creation url.
-			:param pre_load: ordered list of commands to execute before loading. 
-			:param load: command string to load data from a file.
-			:param post_load: ordered list of commands to execute after loading.
 
 		"""
 		self.url = url
 
 
 	def get_import_engine(self):
-		""" :return: an sqlalchemy engine object. """
+		""" :return: sqlalchemy engine object. """
 		return sqlalchemy.create_engine(self.url)
 
 

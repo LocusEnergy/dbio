@@ -220,6 +220,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.3.3: Added public documentation and minor fixes.
 - 0.3.2: Fixed minor vertica.py bugs.
 - 0.3.1: Fixed critical CLI bug.
 - 0.3.0: Handle replication CSV formatting automatically.
