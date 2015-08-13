@@ -75,16 +75,18 @@ def test_load(monkeypatch):
 	mock_null_string = 'mock_null_string'
 	mock_analyze = True
 	mock_disable_indices = True
+	mock_create_staging = False
 	
 
 	check_execute_import_args = [mock_table, mock_fname, mock_append, mock_csv_params, 
-								 mock_null_string, mock_analyze, mock_disable_indices]
+								 mock_null_string, mock_analyze, mock_disable_indices,
+								 mock_create_staging]
 	mock_db.cmds = ['mock_cmd1', 'mock_cmd2', 'mock_cmd3']
 
 	# Tested method
 	dbio.load(mock_url, mock_table, mock_fname, True, csv_params=mock_csv_params, 
 			  null_string=mock_null_string, analyze=mock_analyze,
-			  disable_indices=mock_disable_indices)
+			  disable_indices=mock_disable_indices, create_staging=mock_create_staging)
 
 	# Check commands are passed to execute_import correctly
 	assert check_execute_import_args == mock_db.execute_import_args
@@ -284,6 +286,7 @@ def test_replicate_no_fifo(monkeypatch):
 	mock_query_is_file = True
 	mock_analyze = True
 	mock_disable_indices = True
+	mock_create_staging = False
 
 	query_called_with = {}
 	load_called_with = {}
@@ -308,7 +311,8 @@ def test_replicate_no_fifo(monkeypatch):
 
 	dbio.replicate_no_fifo(mock_url, mock_url, mock_query, mock_table, 
 						mock_append, query_is_file=mock_query_is_file, 
-						analyze=mock_analyze, disable_indices=mock_disable_indices)
+						analyze=mock_analyze, disable_indices=mock_disable_indices,
+						create_staging=mock_create_staging)
 
 	fname = query_called_with['args'][2]
 
@@ -318,7 +322,8 @@ def test_replicate_no_fifo(monkeypatch):
 	correct_load_args = (mock_url, mock_table, fname, mock_append)
 	correct_load_kwargs = {'analyze' : mock_analyze, 'csv_params' : dbio.databases.DEFAULT_CSV_PARAMS,
 							'null_string' : dbio.databases.DEFAULT_NULL_STRING,
-							'disable_indices' : mock_disable_indices}
+							'disable_indices' : mock_disable_indices,
+							'create_staging' : mock_create_staging}
 
 	assert load_called_with['args'] == correct_load_args
 	assert load_called_with['kwargs'] == correct_load_kwargs
@@ -477,8 +482,10 @@ class MockDatabase():
 
 
 	def execute_import(self, table, data_file, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
-		self.execute_import_args = [table, data_file, append, csv_params, null_string, analyze, disable_indices]
+						analyze=False, disable_indices=False, create_staging=True):
+		self.execute_import_args = [table, data_file, append, csv_params, 
+									null_string, analyze, disable_indices,
+									create_staging]
 
 
 class MockPopen():

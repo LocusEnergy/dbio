@@ -79,7 +79,7 @@ def query(sqla_url, query, filename, query_is_file=False,
 
 
 def load(sqla_url, table, filename, append, disable_indices=False, analyze=False,
-		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING):
+		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING, create_staging=True):
 	""" Import data from a csv file to a database table. 
 
 		:param sqla_url: SQLAlchemy url string to pass to create_engine().
@@ -93,6 +93,8 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 								up the operation.
 		:param csv_params: Dictionary of csv parameters.
 		:param null_string: String to represent null values with.
+		:param create_staging: If True, the old table will be replaced with a new, identical table.
+					If False, there must be an existing table named "table_staging".
 
 	"""
 
@@ -100,13 +102,14 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 
 	db = __get_database(sqla_url)
 	db.execute_import(table, filename, append, csv_params, null_string,
-						analyze=analyze, disable_indices=disable_indices)
+						analyze=analyze, disable_indices=disable_indices, 
+						create_staging=create_staging)
 
 	logger.info("Load from csv completed.")
 
 
 def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
-			  disable_indices=False, query_is_file=False):
+			  disable_indices=False, query_is_file=False, create_staging=True):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -125,6 +128,8 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 								for the duration of the load in the attempt of speeding 
 								up the operation.
 		:param query_is_file: If True, the query argument is a filename.
+		:param create_staging: If True, the old table will be replaced with a new, identical table.
+					If False, there must be an existing table named "table_staging".
 
 
 		:raises ReaderError: Reader process did not execute successfully.
@@ -154,6 +159,8 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 			load_args.append('--append')
 		if analyze:
 			load_args.append('--analyze')
+		if not create_staging:
+			load_args.append('--staging-exists')
 		if disable_indices:
 			load_args.append('--disable-indices')
 		__append_csv_args(load_args, csv_params, null_string)
@@ -217,7 +224,7 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 
 
 def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=False,
-					  disable_indices=False, query_is_file=False):
+					  disable_indices=False, query_is_file=False, create_staging=True):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
@@ -233,7 +240,8 @@ def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=F
 		query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
 			  csv_params=csv_params, null_string=null_string)
 		load(load_db_url, table, temp_file.name, append, analyze=analyze, 
-			 disable_indices=disable_indices, csv_params=csv_params, null_string=null_string)
+			 disable_indices=disable_indices, csv_params=csv_params, null_string=null_string,
+			 create_staging=create_staging)
 	finally:
 		temp_file.close()
 

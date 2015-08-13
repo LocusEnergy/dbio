@@ -85,7 +85,8 @@ Optional flags:
    before replication are preserved.
 -  ``-z``: analyzes ``table`` for query optimization after completing the load.
 -  ``-i``: drops or disable indices while loading, recreating them afterwards.
--  ``-nf``: does not use ``mkfifo()``. Use this if ``mkfifo()`` is not
+-  ``-nf``: does not use ``mkfifo()``. Use this if ``mkfifo()`` is not available.
+-  ``-s``: expects an table named 'table_staging' to already exist.
    supported by your OS (e.g. Windows).
 
 How it Works
@@ -118,6 +119,7 @@ Optional flags:
    before replication are preserved.
 -  ``-z``: analyzes ``table`` after completing the load.
 -  ``-i``: drops or disable indices while loading, recreating them afterwards.
+-  ``-s``: expects an table named 'table_staging' to already exist.
 - csv flags:
     * ``-qc``: character to enclose fields. If not included, fields are not enclosed.
     * ``-ns``: string to replace NULL fields. Defaults to "NULL".
@@ -224,6 +226,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.4.1: Support for existing staging tables.
 - 0.4.0: Support for temporary index disabling.
 - 0.3.4: Link to documentation in README.rst.
 - 0.3.3: Added public documentation and minor fixes.

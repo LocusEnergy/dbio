@@ -22,10 +22,13 @@ class PostgreSQL(Exportable, Importable):
 
 	ANALYZE_CMD = "ANALYZE {table};"
 
-	SWAP_AND_DROP_CMD = ("ALTER TABLE {table} RENAME TO {temp};"
+	SWAP_CMD = ("ALTER TABLE {table} RENAME TO {temp};"
 						 "ALTER TABLE {staging} RENAME TO {table};"
-						 "ALTER TABLE {temp} RENAME TO {staging};"
-						 "DROP TABLE {staging};")
+						 "ALTER TABLE {temp} RENAME TO {staging};")
+	
+	DROP_CMD = "DROP TABLE {staging};"
+
+	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
 	DEFAULT_CSV_PARAMS = {
 						'delimiter' : ',', 
@@ -43,7 +46,7 @@ class PostgreSQL(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -55,7 +58,7 @@ class PostgreSQL(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append:
+			if not append and create_staging:
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
@@ -91,4 +94,8 @@ class PostgreSQL(Exportable, Importable):
 
 			if not append:
 				connection.execute(
-					self.SWAP_AND_DROP_CMD.format(table=table, staging=staging, temp=temp))
+					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
+				if create_staging:
+					connection.execute(self.DROP_CMD.format(staging=staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))

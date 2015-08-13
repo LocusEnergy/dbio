@@ -31,9 +31,12 @@ class MySQL(Exportable, Importable):
 
 	ANALYZE_CMD = ("ANALYZE TABLE {table};")
 
-	SWAP_AND_DROP_CMD = ("RENAME TABLE {table} TO {temp}, {staging} TO {table}, "
-		 				 "{temp} TO {staging};"
-		 				 "DROP TABLE {staging};")
+	SWAP_CMD = ("RENAME TABLE {table} TO {temp}, {staging} TO {table}, "
+		 				 "{temp} TO {staging};")
+	
+	DROP_CMD = "DROP TABLE {staging};"
+
+	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
 	DEFAULT_CSV_PARAMS = {
 						'delimiter' : ',', 
@@ -63,7 +66,7 @@ class MySQL(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -78,7 +81,7 @@ class MySQL(Exportable, Importable):
 			connection.execute(self.SET_NET_READ_TIMEOUT)
 			connection.execute(self.SET_TRANS_ISO_LVL)
 
-			if not append:
+			if not append and create_staging:
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
@@ -96,4 +99,8 @@ class MySQL(Exportable, Importable):
 
 			if not append:
 				connection.execute(
-					self.SWAP_AND_DROP_CMD.format(table=table, staging=staging, temp=temp))
+					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
+				if create_staging:
+					connection.execute(self.DROP_CMD.format(staging=staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))

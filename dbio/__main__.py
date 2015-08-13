@@ -12,7 +12,7 @@ def load(args):
 	csv_params = __get_csv_params(args)
 	io.load(args.db_url, args.table, args.filename, args.append, analyze=args.analyze,
 			disable_indices=args.disable_indices, csv_params=csv_params,  
-			null_string=args.null_string)
+			null_string=args.null_string, create_staging=args.create_staging)
 
 
 def query(args):
@@ -25,12 +25,12 @@ def replicate(args):
 	if args.fifo:
 		io.replicate(args.query_db_url, args.load_db_url, args.query, args.table, 
 					 args.append, analyze=args.analyze, disable_indices=args.disable_indices,
-					 query_is_file=args.from_file)
+					 query_is_file=args.from_file, create_staging=args.create_staging)
 	else:
 		io.replicate_no_fifo(args.query_db_url, args.load_db_url, args.query, args.table, 
 							 args.append, analyze=args.analyze, 
 							 disable_indices=args.disable_indices,
-							 query_is_file=args.from_file)
+							 query_is_file=args.from_file, create_staging=args.create_staging)
 
 
 def main():
@@ -85,7 +85,8 @@ def __setup_replicate_parser(subparsers):
 										"before loading and recreated after."))
 	replicate_parser.add_argument('-nf', '--no-fifo', dest='fifo', action='store_false', 
 									help="Include to avoid using mkfifo(), a Unix-only operation.")
-	
+	replicate_parser.add_argument('-s', '--staging-exists', dest='create_staging', action='store_false',
+									help="Include if a table named table_staging already exists.")
 	replicate_parser.set_defaults(func=replicate)
 
 
@@ -126,7 +127,8 @@ def __setup_load_parser(subparsers):
 	load_parser.add_argument('-i', '--disable-indices', dest='disable_indices', action='store_true',
 								help=("If this flag is included, any table indices will be dropped "
 										"before loading and recreated after."))
-
+	load_parser.add_argument('-s', '--staging-exists', dest='create_staging', action='store_false',
+									help="Include if a table named table_staging already exists.")
 	# CSV ARGS
 	load_parser.add_argument('-qc', '--quotechar', default=None, help='Character to enclose fields. If not included, fields are not enclosed.')
 	load_parser.add_argument('-ns', '--null-string', default=DEFAULT_NULL_STRING, help='String to replace NULL fields.')

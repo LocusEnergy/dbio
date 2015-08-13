@@ -45,7 +45,7 @@ class Importable():
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		""" Database specific implementation of loading from a CSV
 
 			:param table: destination for the load operation.
@@ -59,6 +59,8 @@ class Importable():
 			:param disable_indices: If True, table will temporarily disable or drop indices
 					in the attempts of speeding up the load. 
 			:param null_string: String to replace NULL values with when importing.
+			:param create_staging: If True, the old table will be replaced with a new, identical table.
+					If False, there must be an existing table named "table_staging".
 
 		"""
 		raise NotImplementedError()

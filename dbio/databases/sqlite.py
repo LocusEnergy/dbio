@@ -19,10 +19,13 @@ class SQLite(Exportable, Importable):
 
 	ANALYZE_CMD = "ANALYZE {table};"
 
-	SWAP_AND_DROP_CMDS = ["ALTER TABLE {table} RENAME TO {temp};",
+	SWAP_CMDS = ["ALTER TABLE {table} RENAME TO {temp};",
 						 "ALTER TABLE {staging} RENAME TO {table};",
-						 "ALTER TABLE {temp} RENAME TO {staging};",
-						 "DROP TABLE {staging};"]
+						 "ALTER TABLE {temp} RENAME TO {staging};"]
+	
+	DROP_CMD = "DROP TABLE {staging};"
+
+	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
 	INSERT_BATCH = 100
 
@@ -32,7 +35,7 @@ class SQLite(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -44,7 +47,7 @@ class SQLite(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append:
+			if not append and create_staging:
 				results = connection.execute(self.SELECT_CREATE_CMD.format(table=table))
 				create_cmd = results.fetchone()[0]
 				results.close()
@@ -88,5 +91,10 @@ class SQLite(Exportable, Importable):
 				connection.execute(self.ANALYZE_CMD.format(table=insert_table))
 
 			if not append:
-				for cmd in self.SWAP_AND_DROP_CMDS:
+				for cmd in self.SWAP_CMDS:
 					connection.execute(cmd.format(table=table, staging=staging, temp=temp))
+
+				if create_staging:
+					connection.execute(self.DROP_CMD.format(staging=staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))

@@ -22,6 +22,8 @@ class Vertica(Exportable, Importable):
 
 	DROP_CMD = "DROP TABLE {staging};"
 
+	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
+
 	DEFAULT_CSV_PARAMS = {
 						'delimiter' : ',', 
 						'escapechar' : '\\',
@@ -39,7 +41,7 @@ class Vertica(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		""" Vertica has no indices, so disable_indices doesn't apply """
 		
 		staging = table + '_staging'
@@ -53,9 +55,10 @@ class Vertica(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append:
+			if not append and create_staging:
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+
 
 			raw_cursor = connection.connection.cursor()
 			with open(filename, 'r') as f:
@@ -70,7 +73,10 @@ class Vertica(Exportable, Importable):
 				connection.execute(
 					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
 
-				connection.execute(self.DROP_CMD.format(staging=staging))
+				if create_staging:
+					connection.execute(self.DROP_CMD.format(staging=staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
 
 class VerticaODBC(Exportable, Importable):
@@ -85,9 +91,12 @@ class VerticaODBC(Exportable, Importable):
 
 	ANALYZE_CMD = "SELECT ANALYZE_STATISTICS('{table}');"
 
-	SWAP_AND_DROP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
-			 			 "RENAME TO {temp}, {table}, {staging};"
-			 			 "DROP TABLE {staging};")
+	SWAP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
+			 			 "RENAME TO {temp}, {table}, {staging};")
+
+	DROP_CMD = "DROP TABLE {staging};"
+
+	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
 	DEFAULT_CSV_PARAMS = {
 						'delimiter' : ',', 
@@ -105,7 +114,7 @@ class VerticaODBC(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False):
+						analyze=False, disable_indices=False, create_staging=True):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -117,7 +126,7 @@ class VerticaODBC(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append:
+			if not append and create_staging:
 				connection.execute(
 					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 
@@ -129,5 +138,7 @@ class VerticaODBC(Exportable, Importable):
 				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
 
 			if not append:
-				connection.execute(
-					self.SWAP_AND_DROP_CMD.format(table=table, staging=staging, temp=temp))
+				if create_staging:
+					connection.execute(self.DROP_CMD.format(staging=staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
