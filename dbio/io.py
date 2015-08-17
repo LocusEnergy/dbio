@@ -2,9 +2,11 @@
 import tempfile
 import logging
 import os
+import random
 import time
 import subprocess
 import sys
+import string
 
 # PyPI packages
 import unicodecsv
@@ -25,7 +27,6 @@ FILE_WRITE_BATCH = 1000000
 PIPE_WRITE_BATCH = 100
 MAX_WRITE_ATTEMPTS = 10
 MAX_READ_ATTEMPTS = 10
-PIPE_NAME = 'replication_fifo'
 
 
 def query(sqla_url, query, filename, query_is_file=False, 
@@ -79,7 +80,8 @@ def query(sqla_url, query, filename, query_is_file=False,
 
 
 def load(sqla_url, table, filename, append, disable_indices=False, analyze=False,
-		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING, create_staging=True):
+		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING, 
+		 create_staging=True, expected_rowcount=None):
 	""" Import data from a csv file to a database table. 
 
 		:param sqla_url: SQLAlchemy url string to pass to create_engine().
@@ -95,6 +97,9 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 		:param null_string: String to represent null values with.
 		:param create_staging: If True, the old table will be replaced with a new, identical table.
 					If False, there must be an existing table named "table_staging".
+		:param expected_rowcount: The number of rows that are expected to be in the loaded table.
+					If the count does not much, the loading transaction will raise an error and rollback if possible.
+					If the count is set to None, no check will be made. 
 
 	"""
 
@@ -103,13 +108,14 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 	db = __get_database(sqla_url)
 	db.execute_import(table, filename, append, csv_params, null_string,
 						analyze=analyze, disable_indices=disable_indices, 
-						create_staging=create_staging)
+						create_staging=create_staging, expected_rowcount=expected_rowcount)
 
 	logger.info("Load from csv completed.")
 
 
 def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
-			  disable_indices=False, query_is_file=False, create_staging=True):
+			  disable_indices=False, query_is_file=False, create_staging=True,
+			  do_rowcount_check=False):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -130,7 +136,8 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 		:param query_is_file: If True, the query argument is a filename.
 		:param create_staging: If True, the old table will be replaced with a new, identical table.
 					If False, there must be an existing table named "table_staging".
-
+		:param do_rowcount_check: If True, the replication will only succeed if the query rowcount
+					matches the load rowcount.
 
 		:raises ReaderError: Reader process did not execute successfully.
 		:raises WriterError: Writer process did not execute successfully.
@@ -143,7 +150,9 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 	null_string = load_db.DEFAULT_NULL_STRING
 
 	# Open a UNIX first-in-first-out file (a named pipe).
-	os.mkfifo(PIPE_NAME)
+	pipe_name = 'pipe_' + ''.join(random.SystemRandom().choice(
+		string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(10))
+	os.mkfifo(pipe_name)
 	try:
 		# Args for 'dbio' command
 		dbio_args = ['dbio']
@@ -154,7 +163,7 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 			dbio_args.append('-q')
 
 		# Args for 'load' subcommand
-		load_args = ['load', load_db_url, table, PIPE_NAME]
+		load_args = ['load', load_db_url, table, pipe_name]
 		if append:
 			load_args.append('--append')
 		if analyze:
@@ -163,11 +172,20 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 			load_args.append('--staging-exists')
 		if disable_indices:
 			load_args.append('--disable-indices')
+		if do_rowcount_check:
+			if query_is_file:
+				rowcount = __get_database(query_db_url).get_query_rowcount(__file_to_str(query))
+			else:
+				rowcount = __get_database(query_db_url).get_query_rowcount(query)
+
+			load_args.append('--expected-rowcount')
+			load_args.append(str(rowcount))
+			
 		__append_csv_args(load_args, csv_params, null_string)
 		reader_args = dbio_args + load_args
 
 		# Args for 'query' subcommand
-		query_args  = ['query', query_db_url, query, PIPE_NAME, '--batchsize', str(PIPE_WRITE_BATCH)]
+		query_args  = ['query', query_db_url, query, pipe_name, '--batchsize', str(PIPE_WRITE_BATCH)]
 		if query_is_file:
 			query_args.append('--file')
 		__append_csv_args(query_args, csv_params, null_string)
@@ -218,13 +236,14 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 			if writer_process.returncode is None:
 					writer_process.kill()
 	finally:
-		os.remove(PIPE_NAME)
+		os.remove(pipe_name)
 
 	logger.info("Replication completed.")
 
 
 def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=False,
-					  disable_indices=False, query_is_file=False, create_staging=True):
+					  disable_indices=False, query_is_file=False, create_staging=True,
+					  do_rowcount_check=False):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
@@ -237,11 +256,15 @@ def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=F
 
 	temp_file = tempfile.NamedTemporaryFile()
 	try:
-		query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
+		rowcount = query(query_db_url, query, temp_file.name, query_is_file=query_is_file, 
 			  csv_params=csv_params, null_string=null_string)
+
+		if not do_rowcount_check:
+			rowcount = None
+
 		load(load_db_url, table, temp_file.name, append, analyze=analyze, 
 			 disable_indices=disable_indices, csv_params=csv_params, null_string=null_string,
-			 create_staging=create_staging)
+			 create_staging=create_staging, expected_rowcount=rowcount)
 	finally:
 		temp_file.close()
 

@@ -66,7 +66,8 @@ class MySQL(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True):
+						analyze=False, disable_indices=False, create_staging=True,
+						expected_rowcount=None):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -81,15 +82,22 @@ class MySQL(Exportable, Importable):
 			connection.execute(self.SET_NET_READ_TIMEOUT)
 			connection.execute(self.SET_TRANS_ISO_LVL)
 
-			if not append and create_staging:
-				connection.execute(
-					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+			if not append:
+				if create_staging:
+					connection.execute(
+						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
 			if disable_indices:
 				connection.execute(self.DISABLE_KEYS.format(table=load_table))
 
 			connection.execute(
 					self.LOAD_CMD.format(table=load_table, filename=filename, **csv_params))
+			
+		with eng.begin() as connection:
+			if expected_rowcount is not None:
+				self.do_rowcount_check(load_table, expected_rowcount)
 
 			if disable_indices:
 				connection.execute(self.ENABLE_KEYS.format(table=load_table))
@@ -101,6 +109,4 @@ class MySQL(Exportable, Importable):
 				connection.execute(
 					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
 				if create_staging:
-					connection.execute(self.DROP_CMD.format(staging=staging))
-				else:
-					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
+					connection.execute(self.DROP_CMD.format(staging=staging))					

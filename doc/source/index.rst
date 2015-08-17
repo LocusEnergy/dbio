@@ -25,12 +25,10 @@ To add support for an additional database, extend at least one of the following 
 .. autoclass:: dbio.databases.base.Exportable
     :members:
 
-    .. automethod:: __init__
 
 .. autoclass:: dbio.databases.base.Importable
     :members:
 
-    .. automethod:: __init__
 
 
 

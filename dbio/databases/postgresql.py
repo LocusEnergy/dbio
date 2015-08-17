@@ -46,7 +46,8 @@ class PostgreSQL(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True):
+						analyze=False, disable_indices=False, create_staging=True,
+						expected_rowcount=None):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -58,9 +59,12 @@ class PostgreSQL(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append and create_staging:
-				connection.execute(
-					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+			if not append:
+				if create_staging:
+					connection.execute(
+						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
 			if disable_indices:
 				# fetch index information from pg_catalog
@@ -83,6 +87,9 @@ class PostgreSQL(Exportable, Importable):
 					self.COPY_CMD.format(table=copy_table, null_string=null_string, 
 											**csv_params), f)
 				raw_cursor.close()
+		with eng.begin() as connection:
+			if expected_rowcount is not None:
+				self.do_rowcount_check(copy_table, expected_rowcount)
 
 			if disable_indices:
 				# create indices from 'indexdef'
@@ -97,5 +104,4 @@ class PostgreSQL(Exportable, Importable):
 					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
 				if create_staging:
 					connection.execute(self.DROP_CMD.format(staging=staging))
-				else:
-					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
+					

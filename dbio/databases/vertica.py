@@ -41,7 +41,8 @@ class Vertica(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True):
+						analyze=False, disable_indices=False, create_staging=True,
+						expected_rowcount=None):
 		""" Vertica has no indices, so disable_indices doesn't apply """
 		
 		staging = table + '_staging'
@@ -55,16 +56,22 @@ class Vertica(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append and create_staging:
-				connection.execute(
-					self.CREATE_STAGING_CMD.format(staging=staging, table=table))
-
+			if not append:
+				if create_staging:
+					connection.execute(
+						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
 			raw_cursor = connection.connection.cursor()
 			with open(filename, 'r') as f:
 				raw_cursor.copy(
 					self.COPY_CMD.format(table=copy_table, nullstring=null_string, **csv_params), f)
 				raw_cursor.close()
+
+		with eng.begin() as connection:
+			if expected_rowcount is not None:
+				self.do_rowcount_check(copy_table, expected_rowcount)
 
 			if analyze:
 				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
@@ -75,8 +82,6 @@ class Vertica(Exportable, Importable):
 
 				if create_staging:
 					connection.execute(self.DROP_CMD.format(staging=staging))
-				else:
-					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
 
 class VerticaODBC(Exportable, Importable):
@@ -114,7 +119,8 @@ class VerticaODBC(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True):
+						analyze=False, disable_indices=False, create_staging=True,
+						expected_rowcount=None):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -133,6 +139,10 @@ class VerticaODBC(Exportable, Importable):
 			connection.execute(
 					self.COPY_CMD.format(table=copy_table, filename=filename, 
 										nullstring=null_string, **csv_params))
+
+		with eng.begin() as connection:
+			if expected_rowcount is not None:
+				self.do_rowcount_check(copy_table, expected_rowcount)
 
 			if analyze:
 				connection.execute(self.ANALYZE_CMD.format(table=copy_table))

@@ -35,7 +35,8 @@ class SQLite(Exportable, Importable):
 
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True):
+						analyze=False, disable_indices=False, create_staging=True,
+						expected_rowcount=None):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -47,11 +48,15 @@ class SQLite(Exportable, Importable):
 		
 		# Start transaction
 		with eng.begin() as connection:
-			if not append and create_staging:
-				results = connection.execute(self.SELECT_CREATE_CMD.format(table=table))
-				create_cmd = results.fetchone()[0]
-				results.close()
-				connection.execute(create_cmd.replace(table, staging))
+			if not append:
+				if create_staging:
+					results = connection.execute(self.SELECT_CREATE_CMD.format(table=table))
+					create_cmd = results.fetchone()[0]
+					results.close()
+					connection.execute(create_cmd.replace(table, staging))
+				else:
+					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
+				
 
 			if disable_indices:
 				# fetch index information from sqlite_master
@@ -81,6 +86,10 @@ class SQLite(Exportable, Importable):
 				if values:
 					connection.execute(self.INSERT_CMD.format(
 											table=insert_table, values=','.join(values)))
+					
+		with eng.begin() as connection:
+			if expected_rowcount is not None:
+				self.do_rowcount_check(insert_table, expected_rowcount)
 
 			if disable_indices:
 				# create indices from 'sql'
@@ -96,5 +105,3 @@ class SQLite(Exportable, Importable):
 
 				if create_staging:
 					connection.execute(self.DROP_CMD.format(staging=staging))
-				else:
-					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
