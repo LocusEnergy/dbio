@@ -1,6 +1,12 @@
+# stdlib
+import logging
+
 # PyPI packages
 import sqlalchemy
 import unicodecsv
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 class Exportable():
 	""" Designed to be the target of **query** operations. """
@@ -32,6 +38,7 @@ class Exportable():
 		results = engine.execute(self.SELECT_COUNT_CMD.format(query=query))
 		rowcount = results.fetchall()[0][0]
 		results.close()
+		logger.info("Query row count: {count}.".format(count=rowcount))
 		return rowcount
 
 
@@ -76,6 +83,7 @@ class Importable():
 		results = engine.execute(self.ROWCOUNT_QUERY.format(table=table))
 		rowcount = results.fetchall()[0][0]
 		results.close()
+		logger.info("Row count of {table}: {count}.".format(table=table, count=rowcount))
 		if rowcount != expected_rowcount:
 			raise self.UnexpectedRowcountError("Expected {expected} rows in {table}, found {actual}.".format(
 											expected=expected_rowcount, table=table, actual=rowcount))

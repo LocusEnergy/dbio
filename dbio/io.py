@@ -75,7 +75,7 @@ def query(sqla_url, query, filename, query_is_file=False,
 
 	results.close()
 
-	logger.info("Query to csv completed.")
+	logger.info("Query to csv completed. Rows written: {count}.".format(count=rows_written))
 	return rows_written
 
 
