@@ -228,6 +228,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.4.4: Added SQL logic to Vertica and MySQL to raise errors when loading has any issues, including truncated data.
 - 0.4.3: Minor logging additions.
 - 0.4.2: Added a rowcount check option and randomized pipe names.
 - 0.4.1: Support for existing staging tables.

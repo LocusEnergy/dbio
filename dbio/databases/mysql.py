@@ -11,9 +11,14 @@ class MySQL(Exportable, Importable):
 
 	NET_READ_TIMEOUT = 3600
 
+	# Allows for opening a LOAD DATA command with a long timeout
 	SET_NET_READ_TIMEOUT = "SET SESSION net_read_timeout=" + str(NET_READ_TIMEOUT)
 
+	# Deadlock avoidance
 	SET_TRANS_ISO_LVL = "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;"
+
+	# Fail on warnings, e.g. truncated rows or invalid datatypes.
+	SET_SQL_MODE = "SET SESSION sql_mode='STRICT_ALL_TABLES';"
 
 	CREATE_STAGING_CMD = "CREATE TABLE {staging} LIKE {table};"
 
@@ -81,6 +86,7 @@ class MySQL(Exportable, Importable):
 		with eng.begin() as connection:
 			connection.execute(self.SET_NET_READ_TIMEOUT)
 			connection.execute(self.SET_TRANS_ISO_LVL)
+			connection.execute(self.SET_SQL_MODE)
 
 			if not append:
 				if create_staging:

@@ -13,7 +13,8 @@ class Vertica(Exportable, Importable):
 				"DELIMITER E'\{delimiter}' "
 				"NULL AS '{nullstring}' "
 				"ESCAPE AS '{escapechar}' "
-				"RECORD TERMINATOR '{lineterminator}' ")
+				"RECORD TERMINATOR '{lineterminator}' "
+				"ENFORCELENGTH ABORT ON ERROR")
 
 	SWAP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
 			 	"RENAME TO {temp}, {table}, {staging};")
@@ -92,7 +93,8 @@ class VerticaODBC(Exportable, Importable):
 				"DELIMITER E'\{delimiter}' "
 				"NULL AS '{nullstring}' "
 				"ESCAPE AS '{escapechar}' "
-				"RECORD TERMINATOR '{lineterminator}' ")
+				"RECORD TERMINATOR '{lineterminator}' "
+				"ENFORCELENGTH ABORT ON ERROR")
 
 	ANALYZE_CMD = "SELECT ANALYZE_STATISTICS('{table}');"
 
