@@ -58,7 +58,7 @@ class PostgreSQL(Exportable, Importable):
 		eng = self.get_import_engine()
 		
 		# Start transaction
-		with eng.begin() as connection:
+		with eng.begin() as connection, connection.begin() as tran:
 			if not append:
 				if create_staging:
 					connection.execute(
