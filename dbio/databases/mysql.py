@@ -83,7 +83,7 @@ class MySQL(Exportable, Importable):
 		eng = self.get_import_engine()
 		
 		# Start transaction
-		with eng.begin() as connection:
+		with eng.begin() as connection, connection.begin() as tran:
 			connection.execute(self.SET_NET_READ_TIMEOUT)
 			connection.execute(self.SET_TRANS_ISO_LVL)
 			connection.execute(self.SET_SQL_MODE)

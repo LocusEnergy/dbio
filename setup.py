@@ -24,7 +24,7 @@ if (sys.version_info[0], sys.version_info[1]) != (2,7):
 
 setup(
 	name='dbio',
-	version='0.4.4',
+	version='0.4.5',
 	author='Locus Energy',
 	author_email='dbio@locusenergy.com',
 	license='MIT',
