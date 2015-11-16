@@ -1,6 +1,8 @@
 import sys
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
+import re
+
 
 class PyTest(TestCommand):
     user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
@@ -19,12 +21,18 @@ class PyTest(TestCommand):
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
-if (sys.version_info[0], sys.version_info[1]) != (2,7):
+if (sys.version_info[0], sys.version_info[1]) != (2, 7):
     print "WARNING: USING UNTESTED PYTHON VERSION."
+
+# Get version from init.py, adapted from
+# https://github.com/kennethreitz/requests/blob/master/setup.py#L32
+with open('dbio/__init__.py', 'r') as fd:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+                        fd.read(), re.MULTILINE).group(1)
 
 setup(
     name='dbio',
-    version='0.4.5',
+    version=version,
     author='Locus Energy',
     author_email='dbio@locusenergy.com',
     license='MIT',
@@ -62,7 +70,7 @@ setup(
     tests_require=[
         'pytest',
     ],
-    cmdclass= {
+    cmdclass={
         'test': PyTest,
     },
 )
