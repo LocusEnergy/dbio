@@ -30,6 +30,13 @@ class PostgreSQL(Exportable, Importable):
 
     TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
+    GET_GRANTS_CMD = (
+        "SELECT 'GRANT ' || string_agg(privilege_type, ',') || ' ON {staging} TO ' || grantee "
+        "FROM information_schema.role_table_grants "
+        "WHERE table_name='{table}' and grantee != 'root' "
+        "GROUP BY grantee"
+    )
+
     DEFAULT_CSV_PARAMS = {
         'delimiter': ',',
         'escapechar': '\\',
@@ -62,6 +69,13 @@ class PostgreSQL(Exportable, Importable):
                 if create_staging:
                     connection.execute(
                         self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+                    # get list of existing grants for existing table
+                    permission_cmds = connection.execute(
+                        self.GET_GRANTS_CMD.format(table=table, staging=staging)
+                    ).fetchall()
+                    # create equal set of grants for the new staging table
+                    for cmd, in permission_cmds:
+                        connection.execute(cmd)
                 else:
                     connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 

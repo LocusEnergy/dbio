@@ -228,6 +228,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.4.7: When a new staging table is created with the postgres db, grants are copied over as well
 - 0.4.6: Making version number read from all dbio/__init__.py so it doesn't need to copied and pasted everywhere.
 - 0.4.5: Explicit SQLAlchemy transaction creation.
 - 0.4.4: Added SQL logic to Vertica and MySQL to raise errors when loading has any issues, including truncated data.
