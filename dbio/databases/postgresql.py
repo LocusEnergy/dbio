@@ -7,101 +7,99 @@ from base import Exportable, Importable
 
 class PostgreSQL(Exportable, Importable):
 
-	COPY_CMD = ("COPY {table} FROM STDIN WITH "
-				"CSV "
-				"DELIMITER '{delimiter}' "
-				"NULL '{null_string}' "
-				"ESCAPE '{escapechar}';")
+    COPY_CMD = ("COPY {table} FROM STDIN WITH "
+                "CSV "
+                "DELIMITER '{delimiter}' "
+                "NULL '{null_string}' "
+                "ESCAPE '{escapechar}';")
 
-	SELECT_INDICES_CMD = ("SELECT indexname, indexdef FROM pg_catalog.pg_indexes "
-							"WHERE tablename='{table}';")
+    SELECT_INDICES_CMD = ("SELECT indexname, indexdef FROM pg_catalog.pg_indexes "
+                            "WHERE tablename='{table}';")
 
-	DROP_INDICES_CMD = ("DROP INDEX {indices};")
+    DROP_INDICES_CMD = ("DROP INDEX {indices};")
 
-	CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table} INCLUDING ALL);"
+    CREATE_STAGING_CMD = "CREATE TABLE {staging} (LIKE {table} INCLUDING ALL);"
 
-	ANALYZE_CMD = "ANALYZE {table};"
+    ANALYZE_CMD = "ANALYZE {table};"
 
-	SWAP_CMD = ("ALTER TABLE {table} RENAME TO {temp};"
-						 "ALTER TABLE {staging} RENAME TO {table};"
-						 "ALTER TABLE {temp} RENAME TO {staging};")
-	
-	DROP_CMD = "DROP TABLE {staging};"
+    SWAP_CMD = ("ALTER TABLE {table} RENAME TO {temp};"
+                         "ALTER TABLE {staging} RENAME TO {table};"
+                         "ALTER TABLE {temp} RENAME TO {staging};")
 
-	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
+    DROP_CMD = "DROP TABLE {staging};"
 
-	DEFAULT_CSV_PARAMS = {
-						'delimiter' : ',', 
-						'escapechar' : '\\',
-						'lineterminator' : '\n',
-						'encoding' : 'utf-8',
-						'quoting' : unicodecsv.QUOTE_NONE
-	}
+    TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
-	DEFAULT_NULL_STRING = 'NULL'
+    DEFAULT_CSV_PARAMS = {
+        'delimiter': ',',
+        'escapechar': '\\',
+        'lineterminator': '\n',
+        'encoding': 'utf-8',
+        'quoting': unicodecsv.QUOTE_NONE
+    }
 
-	def __init__(self, url):
-		Exportable.__init__(self, url)
-		Importable.__init__(self, url)
+    DEFAULT_NULL_STRING = 'NULL'
 
+    def __init__(self, url):
+        Exportable.__init__(self, url)
+        Importable.__init__(self, url)
 
-	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True,
-						expected_rowcount=None):
-		staging = table + '_staging'
-		temp = table + '_temp'
-		if append:
-			copy_table = table
-		else:
-			copy_table = staging
+    def execute_import(self, table, filename, append, csv_params, null_string,
+                       analyze=False, disable_indices=False, create_staging=True,
+                       expected_rowcount=None):
+        staging = table + '_staging'
+        temp = table + '_temp'
+        if append:
+            copy_table = table
+        else:
+            copy_table = staging
 
-		eng = self.get_import_engine()
-		
-		# Start transaction
-		with eng.begin() as connection, connection.begin() as tran:
-			if not append:
-				if create_staging:
-					connection.execute(
-						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
-				else:
-					connection.execute(self.TRUNCATE_CMD.format(staging=staging))
+        eng = self.get_import_engine()
 
-			if disable_indices:
-				# fetch index information from pg_catalog
-				results = connection.execute(self.SELECT_INDICES_CMD.format(table=copy_table))
-				index_names = []
-				index_creates = []
-				for row in results:
-					index_names.append(row[0])
-					index_creates.append(row[1])
-				results.close()
+        # Start transaction
+        with eng.begin() as connection, connection.begin() as tran:
+            if not append:
+                if create_staging:
+                    connection.execute(
+                        self.CREATE_STAGING_CMD.format(staging=staging, table=table))
+                else:
+                    connection.execute(self.TRUNCATE_CMD.format(staging=staging))
 
-				# drop the entire list of indices in a single DROP INDEX, if any exist
-				if index_names:
-					connection.execute(self.DROP_INDICES_CMD.format(indices=','.join(index_names)))
+            if disable_indices:
+                # fetch index information from pg_catalog
+                results = connection.execute(self.SELECT_INDICES_CMD.format(table=copy_table))
+                index_names = []
+                index_creates = []
+                for row in results:
+                    index_names.append(row[0])
+                    index_creates.append(row[1])
+                results.close()
 
-			# get psycopg2 cursor object to access copy_expert()
-			raw_cursor = connection.connection.cursor()
-			with open(filename, 'r') as f:
-				raw_cursor.copy_expert(
-					self.COPY_CMD.format(table=copy_table, null_string=null_string, 
-											**csv_params), f)
-				raw_cursor.close()
-		with eng.begin() as connection:
-			if expected_rowcount is not None:
-				self.do_rowcount_check(copy_table, expected_rowcount)
+                # drop the entire list of indices in a single DROP INDEX, if any exist
+                if index_names:
+                    connection.execute(self.DROP_INDICES_CMD.format(indices=','.join(index_names)))
 
-			if disable_indices:
-				# create indices from 'indexdef'
-				for index_create_cmd in index_creates:
-					connection.execute(index_create_cmd)
+            # get psycopg2 cursor object to access copy_expert()
+            raw_cursor = connection.connection.cursor()
+            with open(filename, 'r') as f:
+                raw_cursor.copy_expert(
+                    self.COPY_CMD.format(table=copy_table, null_string=null_string,
+                                         **csv_params), f)
+                raw_cursor.close()
+        with eng.begin() as connection:
+            if expected_rowcount is not None:
+                self.do_rowcount_check(copy_table, expected_rowcount)
 
-			if analyze:
-				connection.execute(self.ANALYZE_CMD.format(table=copy_table))
+            if disable_indices:
+                # create indices from 'indexdef'
+                for index_create_cmd in index_creates:
+                    connection.execute(index_create_cmd)
 
-			if not append:
-				connection.execute(
-					self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
-				if create_staging:
-					connection.execute(self.DROP_CMD.format(staging=staging))
-					
+            if analyze:
+                connection.execute(self.ANALYZE_CMD.format(table=copy_table))
+
+            if not append:
+                connection.execute(
+                    self.SWAP_CMD.format(table=table, staging=staging, temp=temp))
+                if create_staging:
+                    connection.execute(self.DROP_CMD.format(staging=staging))
