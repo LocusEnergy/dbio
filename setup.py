@@ -58,14 +58,14 @@ setup(
         ]
     },
     install_requires=[
-        'sqlalchemy',
-        'unicodecsv'
+        'sqlalchemy==1.0.8',
+        'unicodecsv==0.14.1'
     ],
     extras_require={
-        'MySQL': ['MySQL-python'],
-        'Vertica': ['vertica-python', 'sqlalchemy-vertica-python'],
+        'MySQL': ['MySQL-python==1.2.3'],
+        'Vertica': ['vertica-python==0.5.1', 'sqlalchemy-vertica-python==0.1.2'],
         'VerticaODBC': ['pyodbc', 'vertica-sqlalchemy'],
-        'PostgreSQL': ['psycopg2'],
+        'PostgreSQL': ['psycopg2==2.4.5'],
     },
     tests_require=[
         'pytest',
