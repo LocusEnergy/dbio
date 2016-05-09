@@ -21,7 +21,7 @@ class Vertica(Exportable, Importable):
 
 	ANALYZE_CMD = "SELECT ANALYZE_STATISTICS('{table}');"
 
-	DROP_CMD = "DROP TABLE {staging};"
+	DROP_CMD = "DROP TABLE IF EXISTS {staging};"
 
 	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
@@ -59,6 +59,8 @@ class Vertica(Exportable, Importable):
 		with eng.begin() as connection:
 			if not append:
 				if create_staging:
+					# Pre drop table in case it already exists
+					connection.execute(self.DROP_CMD.format(staging=staging))
 					connection.execute(
 						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 				else:
