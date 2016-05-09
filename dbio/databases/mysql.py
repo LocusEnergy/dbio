@@ -39,7 +39,7 @@ class MySQL(Exportable, Importable):
 	SWAP_CMD = ("RENAME TABLE {table} TO {temp}, {staging} TO {table}, "
 		 				 "{temp} TO {staging};")
 	
-	DROP_CMD = "DROP TABLE {staging};"
+	DROP_CMD = "DROP TABLE IF EXISTS {staging};"
 
 	TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
@@ -90,6 +90,8 @@ class MySQL(Exportable, Importable):
 
 			if not append:
 				if create_staging:
+					# Pre drop table in case it already exists
+					connection.execute(self.DROP_CMD.format(staging=staging))
 					connection.execute(
 						self.CREATE_STAGING_CMD.format(staging=staging, table=table))
 				else:

@@ -26,7 +26,7 @@ class PostgreSQL(Exportable, Importable):
                          "ALTER TABLE {staging} RENAME TO {table};"
                          "ALTER TABLE {temp} RENAME TO {staging};")
 
-    DROP_CMD = "DROP TABLE {staging};"
+    DROP_CMD = "DROP TABLE IF EXISTS {staging};"
 
     TRUNCATE_CMD = "TRUNCATE TABLE {staging};"
 
@@ -67,6 +67,8 @@ class PostgreSQL(Exportable, Importable):
         with eng.begin() as connection, connection.begin() as tran:
             if not append:
                 if create_staging:
+                    # Pre drop table in case it already exists
+                    connection.execute(self.DROP_CMD.format(staging=staging))
                     connection.execute(
                         self.CREATE_STAGING_CMD.format(staging=staging, table=table))
                     # get list of existing grants for existing table
