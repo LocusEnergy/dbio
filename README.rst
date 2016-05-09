@@ -228,6 +228,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.4.9: Deleting staging table prior to creating it to ensure that function does not fail for that reason.
 - 0.4.8: Pinning requirement and "extras" requirements to specific versions where applicable 
 - 0.4.7: When a new staging table is created with the postgres db, grants are copied over as well
 - 0.4.6: Making version number read from all dbio/__init__.py so it doesn't need to copied and pasted everywhere.
