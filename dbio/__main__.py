@@ -13,7 +13,7 @@ def load(args):
 	io.load(args.db_url, args.table, args.filename, args.append, analyze=args.analyze,
 			disable_indices=args.disable_indices, csv_params=csv_params,  
 			null_string=args.null_string, create_staging=args.create_staging, 
-			expected_rowcount=args.expected_rowcount)
+			expected_rowcount=args.expected_rowcount, direct=args.direct)
 
 
 def query(args):
@@ -27,13 +27,13 @@ def replicate(args):
 		io.replicate(args.query_db_url, args.load_db_url, args.query, args.table, 
 					 args.append, analyze=args.analyze, disable_indices=args.disable_indices,
 					 query_is_file=args.from_file, create_staging=args.create_staging,
-					 do_rowcount_check=args.rowcount_check)
+					 do_rowcount_check=args.rowcount_check, direct=args.direct)
 	else:
 		io.replicate_no_fifo(args.query_db_url, args.load_db_url, args.query, args.table, 
 							 args.append, analyze=args.analyze, 
 							 disable_indices=args.disable_indices,
 							 query_is_file=args.from_file, create_staging=args.create_staging,
-							 do_rowcount_check=args.rowcount_check)
+							 do_rowcount_check=args.rowcount_check, direct=args.direct)
 
 
 def main():
@@ -92,6 +92,8 @@ def __setup_replicate_parser(subparsers):
 									help="Include if a table named table_staging already exists.")
 	replicate_parser.add_argument('-rc', '--rowcount-check', dest='rowcount_check', action='store_true',
 									help="Only succeed if the load table rowcount matches the query rowcount.")
+	replicate_parser.add_argument('-dt', '--direct', dest='direct', action='store_const', const='DIRECT',
+								  default='', help="Special keywoard for Vertica load commands to skip WOS")
 	replicate_parser.set_defaults(func=replicate)
 
 
@@ -136,6 +138,8 @@ def __setup_load_parser(subparsers):
 									help="Include if a table named table_staging already exists.")
 	load_parser.add_argument('-r', '--expected-rowcount', dest='expected_rowcount', type=int,
 									help='Number of rows expected in the table after loading.')
+	load_parser.add_argument('-dt', '--direct', dest='direct', action='store_const', const='DIRECT',
+							 default='', help="Special keywoard for Vertica load commands to skip WOS")
 	# CSV ARGS
 	load_parser.add_argument('-qc', '--quotechar', default=None, help='Character to enclose fields. If not included, fields are not enclosed.')
 	load_parser.add_argument('-ns', '--null-string', default=DEFAULT_NULL_STRING, help='String to replace NULL fields.')

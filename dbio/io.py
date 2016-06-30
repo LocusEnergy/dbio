@@ -81,7 +81,7 @@ def query(sqla_url, query, filename, query_is_file=False,
 
 def load(sqla_url, table, filename, append, disable_indices=False, analyze=False,
 		 csv_params=DEFAULT_CSV_PARAMS, null_string=DEFAULT_NULL_STRING, 
-		 create_staging=True, expected_rowcount=None):
+		 create_staging=True, expected_rowcount=None, **kwargs):
 	""" Import data from a csv file to a database table. 
 
 		:param sqla_url: SQLAlchemy url string to pass to create_engine().
@@ -99,8 +99,9 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 					If False, there must be an existing table named "table_staging".
 		:param expected_rowcount: The number of rows that are expected to be in the loaded table.
 					If the count does not much, the loading transaction will raise an error and rollback if possible.
-					If the count is set to None, no check will be made. 
-
+					If the count is set to None, no check will be made.
+		Kwargs:
+             direct (string): For Vertica. Will apply DIRECT keywprd to COPY command to skip WOS
 	"""
 
 	logger.info("Importing from CSV.")
@@ -108,14 +109,15 @@ def load(sqla_url, table, filename, append, disable_indices=False, analyze=False
 	db = __get_database(sqla_url)
 	db.execute_import(table, filename, append, csv_params, null_string,
 						analyze=analyze, disable_indices=disable_indices, 
-						create_staging=create_staging, expected_rowcount=expected_rowcount)
+						create_staging=create_staging, expected_rowcount=expected_rowcount,
+                        **kwargs)
 
 	logger.info("Load from csv completed.")
 
 
 def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 			  disable_indices=False, query_is_file=False, create_staging=True,
-			  do_rowcount_check=False):
+			  do_rowcount_check=False, **kwargs):
 	""" Load query results into a table using a named pipe to stream the data.
 
 		This method works by simultaneously executing :py:func:`query` and 
@@ -138,6 +140,8 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 					If False, there must be an existing table named "table_staging".
 		:param do_rowcount_check: If True, the replication will only succeed if the query rowcount
 					matches the load rowcount.
+		Kwargs:
+             direct (string): For Vertica. Will apply DIRECT keywprd to COPY command to skip WOS
 
 		:raises ReaderError: Reader process did not execute successfully.
 		:raises WriterError: Writer process did not execute successfully.
@@ -180,7 +184,8 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 
 			load_args.append('--expected-rowcount')
 			load_args.append(str(rowcount))
-			
+		if kwargs.get('direct'):
+			load_args.append('--direct')
 		__append_csv_args(load_args, csv_params, null_string)
 		reader_args = dbio_args + load_args
 
@@ -243,7 +248,7 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 
 def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=False,
 					  disable_indices=False, query_is_file=False, create_staging=True,
-					  do_rowcount_check=False):
+					  do_rowcount_check=False, **kwargs):
 	""" Identitcal to :py:func:`replicate`, but uses a tempfile and disk I/O instead of a
 		named pipe. This method works on any platform and doesn't require the database
 		to support loading from named pipes."""
@@ -264,7 +269,7 @@ def replicate_no_fifo(query_db_url, load_db_url, query, table, append, analyze=F
 
 		load(load_db_url, table, temp_file.name, append, analyze=analyze, 
 			 disable_indices=disable_indices, csv_params=csv_params, null_string=null_string,
-			 create_staging=create_staging, expected_rowcount=rowcount)
+			 create_staging=create_staging, expected_rowcount=rowcount, **kwargs)
 	finally:
 		temp_file.close()
 

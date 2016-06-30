@@ -36,7 +36,7 @@ class SQLite(Exportable, Importable):
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
 						analyze=False, disable_indices=False, create_staging=True,
-						expected_rowcount=None):
+						expected_rowcount=None, **kwargs):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
