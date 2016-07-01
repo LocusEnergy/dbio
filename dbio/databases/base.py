@@ -91,7 +91,7 @@ class Importable():
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
 						analyze=False, disable_indices=False, create_staging=True,
-						expected_rowcount=None):
+						expected_rowcount=None, **kwargs):
 		""" Database specific implementation of loading from a CSV
 
 			:param table: destination for the load operation.

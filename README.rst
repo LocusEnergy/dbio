@@ -88,6 +88,7 @@ Optional flags:
 -  ``-nf``: does not use ``mkfifo()``. Use this if ``mkfifo()`` is not available.
 -  ``-s``: expects an table named 'table_staging' to already exist.
 -  ``-rc``: performs a check to ensure that the query rowcount matches the load table rowcount.
+-  ``-dt``: Adds direct keyword to Vertica copy commands used in loading data.
    supported by your OS (e.g. Windows).
 
 How it Works
@@ -122,6 +123,7 @@ Optional flags:
 -  ``-i``: drops or disable indices while loading, recreating them afterwards.
 -  ``-s``: expects a table named 'table_staging' to already exist.
 -  ``-rc``: the number of rows to ensure are present in the table after loading.
+-  ``-dt``: Adds direct keyword to Vertica copy commands used in loading data.
 - csv flags:
     * ``-qc``: character to enclose fields. If not included, fields are not enclosed.
     * ``-ns``: string to replace NULL fields. Defaults to "NULL".
@@ -228,6 +230,7 @@ Query a SQLite table using a query file and write the results to a CSV with NULL
 
 Changelog
 ---------
+- 0.5.0: Adding in ability to add Vertica DIRECT hint when loading data into Vertica
 - 0.4.9: Deleting staging table prior to creating it to ensure that function does not fail for that reason.
 - 0.4.8: Pinning requirement and "extras" requirements to specific versions where applicable 
 - 0.4.7: When a new staging table is created with the postgres db, grants are copied over as well

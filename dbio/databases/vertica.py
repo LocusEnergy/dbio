@@ -14,7 +14,8 @@ class Vertica(Exportable, Importable):
 				"NULL AS '{nullstring}' "
 				"ESCAPE AS '{escapechar}' "
 				"RECORD TERMINATOR '{lineterminator}' "
-				"ENFORCELENGTH ABORT ON ERROR")
+				"ENFORCELENGTH ABORT ON ERROR "
+                "{direct}")
 
 	SWAP_CMD = ("ALTER TABLE {table}, {staging}, {temp} "
 			 	"RENAME TO {temp}, {table}, {staging};")
@@ -42,8 +43,8 @@ class Vertica(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True,
-						expected_rowcount=None):
+					   analyze=False, create_staging=True, expected_rowcount=None,
+                       direct='', **kwargs):
 		""" Vertica has no indices, so disable_indices doesn't apply """
 		
 		staging = table + '_staging'
@@ -69,7 +70,8 @@ class Vertica(Exportable, Importable):
 			raw_cursor = connection.connection.cursor()
 			with open(filename, 'r') as f:
 				raw_cursor.copy(
-					self.COPY_CMD.format(table=copy_table, nullstring=null_string, **csv_params), f)
+					self.COPY_CMD.format(table=copy_table, nullstring=null_string, direct=direct,
+                                         **csv_params), f)
 				raw_cursor.close()
 
 		with eng.begin() as connection:
@@ -123,8 +125,8 @@ class VerticaODBC(Exportable, Importable):
 		
 
 	def execute_import(self, table, filename, append, csv_params, null_string, 
-						analyze=False, disable_indices=False, create_staging=True,
-						expected_rowcount=None):
+						analyze=False, create_staging=True, expected_rowcount=None,
+                       direct='', **kwargs):
 		staging = table + '_staging'
 		temp = table + '_temp'
 		if append:
@@ -142,7 +144,7 @@ class VerticaODBC(Exportable, Importable):
 
 			connection.execute(
 					self.COPY_CMD.format(table=copy_table, filename=filename, 
-										nullstring=null_string, **csv_params))
+										nullstring=null_string, direct=direct, **csv_params))
 
 		with eng.begin() as connection:
 			if expected_rowcount is not None:
