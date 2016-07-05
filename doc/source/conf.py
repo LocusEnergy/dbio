@@ -54,7 +54,7 @@ copyright = u'2015, Locus Energy'
 # The short X.Y version.
 # Get version from init.py, adapted from
 # https://github.com/kennethreitz/requests/blob/master/setup.py#L32
-with open('dbio/__init__.py', 'r') as fd:
+with open('../../dbio/__init__.py', 'r') as fd:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
                         fd.read(), re.MULTILINE).group(1)
 # The full version, including alpha/beta/rc tags.
