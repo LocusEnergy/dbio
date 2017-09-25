@@ -166,14 +166,8 @@ def test_replicate_with_failing_reader(monkeypatch):
 	monkeypatch.setattr(subprocess, 'Popen', mockpopen)
 
 	# Tested method
-	try:
+	with pytest.raises(RuntimeError):
 		dbio.replicate(mock_url, mock_url, mock_query, mock_table, mock_append)
-	except dbio.io.ReaderError:
-		pass
-	except Exception as e:
-		assert False, "Unexcpted error thrown by replicate: " + e.message
-	else:
-		assert False, "Reader failed but replicate did not."
 
 	# Reader should show failure
 	assert mock_reader.returncode != 0
@@ -214,14 +208,8 @@ def test_replicate_with_failing_writer(monkeypatch):
 	monkeypatch.setattr(subprocess, 'Popen', mockpopen)
 
 	# Tested method
-	try:
+	with pytest.raises(RuntimeError):
 		dbio.replicate(mock_url, mock_url, mock_query, mock_table, mock_append)
-	except dbio.io.WriterError:
-		pass
-	except:
-		assert False, "Unexcpted error thrown by replicate"
-	else:
-		assert False, "Writer failed but replicate did not."
 
 	# Reader should not be alive
 	assert mock_reader.returncode is not None
@@ -263,16 +251,8 @@ def test_replicate_with_failing_rw(monkeypatch):
 	monkeypatch.setattr(subprocess, 'Popen', mockpopen)
 
 	# Tested method
-	try:
+	with pytest.raises(RuntimeError):
 		dbio.replicate(mock_url, mock_url, mock_query, mock_table, mock_append)
-	except dbio.io.ReaderError:
-		pass
-	except dbio.io.WriterError:
-		pass
-	except:
-		assert False, "Unexcpted error thrown by replicate"
-	else:
-		assert False, "Writer and reader failed but replicate did not."
 
 	assert mock_reader.returncode != 0
 	assert mock_writer.returncode != 0
