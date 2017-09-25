@@ -206,40 +206,26 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 		logger.debug("Writer call: " + ' '.join(writer_args))
 		writer_process = subprocess.Popen(writer_args, env=env)
 
+		processes = [reader_process, writer_process]
 		try:
-			while True:
-				writer_process.poll()
-				reader_process.poll()
-				r_returncode = reader_process.returncode
-				w_returncode = writer_process.returncode
-				if w_returncode is None:
-					if r_returncode is None:
-						# Both processes are still running. Check again in one second.
-						time.sleep(1)
-					else:
-						raise ReaderError("Reader finished before writer. Subprocess returncode: " + str(r_returncode))
-				elif w_returncode != os.EX_OK:
-					raise WriterError("Subprocess returncode: " + str(writer_process.returncode))
-				else:
-					if r_returncode is None:
-						# Wait for reader to finish
-						reader_process.communicate()
-						r_returncode = reader_process.returncode
-						if r_returncode != os.EX_OK:
-							raise ReaderError("Subprocess returncode: " + str(r_returncode))
-						break
-					elif r_returncode != os.EX_OK:
-						raise ReaderError("Subprocess returncode: " + str(r_returncode))
-					else:
-						break
+			running_processes = list(processes)
+			while running_processes:
+				for process in running_processes:
+					process.poll()
+					if process.returncode == os.EX_OK:
+						running_processes.remove(process)
+
+					elif process.returncode is not None:
+						running_processes.remove(process)
+						raise RuntimeError('Failure inside a database reader/writer process')
+
 		finally:
 			# Ensure no processes are orphaned
-			reader_process.poll()
-			if reader_process.returncode is None:
-					reader_process.kill()
-			writer_process.poll()
-			if writer_process.returncode is None:
-					writer_process.kill()
+			for process in processes:
+				process.poll()
+				if process.returncode is None:
+						process.kill()
+
 	finally:
 		os.remove(pipe_name)
 
@@ -309,6 +295,5 @@ def __get_database(url):
 	return db_class(url)
 
 
-class UnsupportedDatabaseError(Exception): pass
-class WriterError(Exception): pass
-class ReaderError(Exception): pass
+class UnsupportedDatabaseError(Exception):
+	pass
