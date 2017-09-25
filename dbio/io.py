@@ -216,7 +216,6 @@ def replicate(query_db_url, load_db_url, query, table, append, analyze=False,
 						running_processes.remove(process)
 
 					elif process.returncode is not None:
-						logger.error('Subprocess returned {}'.format(process.returncode))
 						running_processes.remove(process)
 						raise RuntimeError('Failure inside a database reader/writer process')
 
