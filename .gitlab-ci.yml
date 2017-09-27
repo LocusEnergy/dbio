@@ -1,0 +1,23 @@
+variables:
+  PASS_TEST: "$PYPI_PASS_TEST"
+  PASS: "$PYPI_PASS"
+
+stages:
+  - test
+  - deploy
+
+test:
+  stage: test
+  script:
+    - docker run --rm -e PYPI_TEST_PASS="$PYPI_PASS_TEST" -v $(pwd):/tmp hub.datareadings.com:5000/pypi-deployer:0.1.1
+  when: manual
+  only:
+    - master
+
+deploy:
+  stage: deploy
+  script:
+    - docker run --rm -e PYPI_PASS="$PYPI_PASS" -v $(pwd):/tmp hub.datareadings.com:5000/pypi-deployer:0.1.1
+  when: manual
+  only:
+    - tags
